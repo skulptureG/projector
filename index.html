@@ -76,6 +76,24 @@
   select option { background: var(--surface); }
   .unit { font-family:'Share Tech Mono',monospace; font-size:10px; color:var(--text-dim); white-space:nowrap; }
 
+  /* ── Unit pill selector ── */
+  .unit-pills { display:flex; gap:0; border:1px solid var(--border); overflow:hidden; }
+  .unit-pill {
+    flex:1; background:var(--bg); border:none; color:var(--text-dim);
+    font-family:'Share Tech Mono',monospace; font-size:11px; letter-spacing:0.08em;
+    padding:7px 0; cursor:pointer; transition:all 0.15s; text-align:center;
+    border-right:1px solid var(--border);
+  }
+  .unit-pill:last-child { border-right:none; }
+  .unit-pill:hover { color:var(--text); background:rgba(0,229,255,0.04); }
+  .unit-pill.active { background:rgba(0,229,255,0.12); color:var(--accent); }
+
+  /* ── Live search spinner ── */
+  .search-spinner { display:none; position:absolute; right:10px; top:50%; transform:translateY(-50%); width:14px; height:14px; border:2px solid var(--border); border-top-color:var(--accent); border-radius:50%; animation:spin 0.6s linear infinite; }
+  @keyframes spin { to { transform:translateY(-50%) rotate(360deg); } }
+  .search-spinner.active { display:block; }
+  .search-status { font-family:'Share Tech Mono',monospace; font-size:9px; color:var(--text-dim); padding:5px 8px; }
+
   .ratio-inputs { display:flex; gap:4px; align-items:center; }
   .ratio-sep { font-family:'Share Tech Mono',monospace; font-size:18px; color:var(--text-dim); padding:0 2px; }
 
@@ -108,13 +126,6 @@
 
   .search-wrap { position:relative; }
   .search-wrap input { padding-right:72px; }
-  .search-btn {
-    position:absolute; right:0; top:0; bottom:0;
-    background:var(--accent); border:none; color:var(--bg);
-    font-family:'Barlow Condensed',sans-serif; font-size:11px; font-weight:700;
-    letter-spacing:0.1em; padding:0 14px; cursor:pointer; transition:opacity 0.2s;
-  }
-  .search-btn:hover { opacity:0.85; }
   .db-results { margin-top:7px; max-height:190px; overflow-y:auto; border:1px solid var(--border); display:none; }
   .db-results.open { display:block; }
   .db-result-item { padding:8px 11px; border-bottom:1px solid var(--border); cursor:pointer; transition:background 0.15s; font-size:12px; }
@@ -198,7 +209,7 @@
 
 <header>
   <div class="logo">Throw<span>CAD</span> — Projector Visualiser</div>
-  <div class="header-badge">v2.2 // FIXED VIEWS</div>
+  <div class="header-badge">v2.3 // MULTI-UNIT + LIVE SEARCH</div>
 </header>
 
 <div class="layout">
@@ -208,13 +219,13 @@
     <div class="section">
       <div class="section-label">Projector Database</div>
       <div class="field">
-        <label>Search Model</label>
-        <div class="search-wrap">
-          <input type="text" id="dbSearch" placeholder="e.g. Epson EB-L510U…" autocomplete="off">
-          <button class="search-btn" onclick="searchProjectorDB()">SEARCH</button>
+        <label>Search Model (live)</label>
+        <div class="search-wrap" style="position:relative;">
+          <input type="text" id="dbSearch" placeholder="e.g. Epson EB-L510U…" autocomplete="off" style="padding-right:32px;">
+          <div class="search-spinner" id="searchSpinner"></div>
         </div>
         <div class="db-results" id="dbResults"></div>
-        <div class="tip">Searches projector-database.com via Claude. Auto-fills specs below.</div>
+        <div class="tip">Type to search projector-database.com &amp; projectorcentral.com. Auto-fills specs.</div>
       </div>
     </div>
 
@@ -253,26 +264,32 @@
     <div class="section">
       <div class="section-label">Screen Setup</div>
       <div class="field">
+        <label>Unit System</label>
+        <div class="unit-pills">
+          <button class="unit-pill active" data-unit="m"  onclick="setUnit('m')">m</button>
+          <button class="unit-pill"        data-unit="ft" onclick="setUnit('ft')">ft</button>
+          <button class="unit-pill"        data-unit="in" onclick="setUnit('in')">in</button>
+          <button class="unit-pill"        data-unit="cm" onclick="setUnit('cm')">cm</button>
+        </div>
+      </div>
+      <div class="field">
         <label>Screen Width</label>
         <div class="input-row">
-          <input type="number" id="screenWidth" value="3.0" step="0.1" min="0.5" max="30">
-          <select id="unitSel" style="width:66px">
-            <option value="m">m</option>
-            <option value="ft">ft</option>
-          </select>
+          <input type="number" id="screenWidth" value="3.0" step="0.1" min="0.5" max="9999">
+          <span class="unit" id="swUnit">m</span>
         </div>
       </div>
       <div class="field">
         <label>Quick Presets</label>
-        <div class="preset-chips">
-          <div class="chip" onclick="setPreset(1.0,this)">1m</div>
-          <div class="chip" onclick="setPreset(2.0,this)">2m</div>
-          <div class="chip active" onclick="setPreset(3.0,this)">3m</div>
-          <div class="chip" onclick="setPreset(4.0,this)">4m</div>
-          <div class="chip" onclick="setPreset(6.0,this)">6m</div>
-          <div class="chip" onclick="setPreset(8.0,this)">8m</div>
-          <div class="chip" onclick="setPreset(10.0,this)">10m</div>
-          <div class="chip" onclick="setPreset(16.0,this)">16m</div>
+        <div class="preset-chips" id="presetChips">
+          <div class="chip" data-m="1.0"  onclick="setPreset(1.0,this)">1m</div>
+          <div class="chip" data-m="2.0"  onclick="setPreset(2.0,this)">2m</div>
+          <div class="chip active" data-m="3.0" onclick="setPreset(3.0,this)">3m</div>
+          <div class="chip" data-m="4.0"  onclick="setPreset(4.0,this)">4m</div>
+          <div class="chip" data-m="6.0"  onclick="setPreset(6.0,this)">6m</div>
+          <div class="chip" data-m="8.0"  onclick="setPreset(8.0,this)">8m</div>
+          <div class="chip" data-m="10.0" onclick="setPreset(10.0,this)">10m</div>
+          <div class="chip" data-m="16.0" onclick="setPreset(16.0,this)">16m</div>
         </div>
       </div>
     </div>
@@ -306,7 +323,7 @@
       <div class="field" style="margin-top:11px;">
         <label id="heightLabel">Projector Height</label>
         <div class="input-row">
-          <input type="number" id="mountHeight" value="3.0" step="0.1" min="0.5" max="30">
+          <input type="number" id="mountHeight" value="3.0" step="0.1" min="0.5" max="99999">
           <span class="unit" id="heightUnit">m above floor</span>
         </div>
       </div>
@@ -328,7 +345,7 @@
         <div class="result-card">
           <div class="r-label">Screen Height</div>
           <div class="r-value" id="res-sh">—</div>
-          <div class="r-unit">metres</div>
+          <div class="r-unit" id="res-sh-u">metres</div>
         </div>
         <div class="result-card">
           <div class="r-label">Diagonal</div>
@@ -338,7 +355,7 @@
         <div class="result-card">
           <div class="r-label">Screen Area</div>
           <div class="r-value" id="res-area">—</div>
-          <div class="r-unit">m²</div>
+          <div class="r-unit" id="res-area-u">m²</div>
         </div>
         <div class="result-card">
           <div class="r-label">Foot-Lamberts</div>
@@ -395,6 +412,34 @@ const S = {
   currentView: 'side', angle3d: 25, animating: false
 };
 
+// ─── UNIT CONVERSION HELPERS ─────────────────────────────────
+// All internal values stored in METRES. These convert to/from display unit.
+const UNIT_LABELS = { m:'m', ft:'ft', in:'in', cm:'cm' };
+const UNIT_LONG   = { m:'metres', ft:'feet', in:'inches', cm:'centimetres' };
+
+function toMetres(v, unit) {
+  unit = unit || S.unit;
+  if (unit === 'ft') return v * 0.3048;
+  if (unit === 'in') return v * 0.0254;
+  if (unit === 'cm') return v * 0.01;
+  return v; // m
+}
+function fromMetres(v, unit) {
+  unit = unit || S.unit;
+  if (unit === 'ft') return v / 0.3048;
+  if (unit === 'in') return v / 0.0254;
+  if (unit === 'cm') return v * 100;
+  return v; // m
+}
+function fmtDist(v_m, unit) {
+  unit = unit || S.unit;
+  const d = fromMetres(v_m, unit);
+  const dec = (unit === 'in' || unit === 'cm') ? 1 : 2;
+  return d.toFixed(dec) + unit;
+}
+// For canvas labels
+function fd(v) { return fmtDist(v); }
+
 const canvas = document.getElementById('mainCanvas');
 const ctx = canvas.getContext('2d');
 let W = 0, H = 0;
@@ -410,13 +455,62 @@ function resizeCanvas() {
 }
 window.addEventListener('resize', resizeCanvas);
 
+// ─── UNIT SYSTEM ─────────────────────────────────────────────
+function setUnit(unit) {
+  const oldUnit = S.unit;
+  S.unit = unit;
+
+  // Update pill buttons
+  document.querySelectorAll('.unit-pill').forEach(b =>
+    b.classList.toggle('active', b.dataset.unit === unit));
+
+  // Convert existing input values
+  const sw_m  = toMetres(parseFloat(document.getElementById('screenWidth').value)||3, oldUnit);
+  const mh_m  = toMetres(parseFloat(document.getElementById('mountHeight').value)||3, oldUnit);
+
+  document.getElementById('screenWidth').value = +fromMetres(sw_m, unit).toFixed(unit==='m'?2:1);
+  document.getElementById('mountHeight').value  = +fromMetres(mh_m, unit).toFixed(unit==='m'?2:1);
+
+  // Update displayed unit labels
+  document.getElementById('swUnit').textContent = unit;
+  updateHeightUnitLabel();
+  updateResultUnitLabels();
+  updatePresetChips();
+
+  // Re-draw if already calculated
+  S.throwDistMax > 0 && drawAll();
+}
+
+function updateHeightUnitLabel() {
+  const u = UNIT_LABELS[S.unit];
+  const mode = S.mountMode;
+  document.getElementById('heightUnit').textContent =
+    mode === 'floor'   ? `${u} above floor`   :
+    mode === 'ceiling' ? `${u} below ceiling`  : `${u} vertical drop`;
+}
+
+function updateResultUnitLabels() {
+  const long = UNIT_LONG[S.unit];
+  const u = UNIT_LABELS[S.unit];
+  ['res-throw-min-u','res-throw-max-u','res-sh-u'].forEach(id =>
+    document.getElementById(id).textContent = long);
+  document.getElementById('res-area-u').textContent = `${u}²`;
+}
+
+function updatePresetChips() {
+  document.querySelectorAll('#presetChips .chip').forEach(chip => {
+    const m = parseFloat(chip.dataset.m);
+    const display = +fromMetres(m, S.unit).toFixed(S.unit==='m'?1:0);
+    chip.textContent = display + UNIT_LABELS[S.unit];
+  });
+}
+
 // ─── MOUNT ───────────────────────────────────────────────────
 function setMount(mode) {
   S.mountMode = mode;
   ['floor','ceiling','down'].forEach(m =>
     document.getElementById('mount-'+m).classList.toggle('active', m === mode));
-  document.getElementById('heightUnit').textContent =
-    mode === 'floor' ? 'm above floor' : mode === 'ceiling' ? 'm below ceiling' : 'm vertical drop';
+  updateHeightUnitLabel();
   document.getElementById('ib-mount').textContent =
     {floor:'Floor Flat', ceiling:'Ceiling Inverted', down:'Ceiling Down'}[mode];
   S.throwDistMax > 0 && drawAll();
@@ -433,8 +527,8 @@ function setView(v) {
 }
 
 // ─── PRESETS ─────────────────────────────────────────────────
-function setPreset(w, el) {
-  document.getElementById('screenWidth').value = w;
+function setPreset(w_m, el) {
+  document.getElementById('screenWidth').value = +fromMetres(w_m, S.unit).toFixed(S.unit==='m'?1:0);
   document.querySelectorAll('.chip').forEach(c => c.classList.remove('active'));
   el.classList.add('active');
 }
@@ -444,39 +538,46 @@ function calculate() {
   const tMin = parseFloat(document.getElementById('throwMin').value);
   const tMax = parseFloat(document.getElementById('throwMax').value);
   const lm   = parseFloat(document.getElementById('lumens').value);
-  let   sw   = parseFloat(document.getElementById('screenWidth').value);
-  const unit = document.getElementById('unitSel').value;
+  const swRaw = parseFloat(document.getElementById('screenWidth').value);
+  const mhRaw = parseFloat(document.getElementById('mountHeight').value);
   const asp  = parseFloat(document.getElementById('aspectRatio').value);
-  const mh   = parseFloat(document.getElementById('mountHeight').value);
 
-  if ([tMin,tMax,lm,sw,mh].some(isNaN)) { showNotif('Please fill all fields', true); return; }
+  if ([tMin,tMax,lm,swRaw,mhRaw].some(isNaN)) { showNotif('Please fill all fields', true); return; }
   if (tMin > tMax) { showNotif('Throw Min must be ≤ Throw Max', true); return; }
 
-  if (unit === 'ft') sw *= 0.3048;
-
-  const sh   = sw / asp;
+  // Normalise everything to metres
+  const sw    = toMetres(swRaw);
+  const mh    = toMetres(mhRaw);
+  const sh    = sw / asp;
   const tdMin = tMin * sw;
   const tdMax = tMax * sw;
   const area  = sw * sh;
-  const diag  = Math.sqrt(sw*sw + sh*sh) * 39.3701;
+  const diag  = Math.sqrt(sw*sw + sh*sh) * 39.3701; // always inches
   const lux   = lm / area;
   const fl    = lux * 0.0929;
 
   S.throwMin = tMin; S.throwMax = tMax;
   S.lumens = lm; S.screenWidth = sw; S.screenHeight = sh;
   S.aspect = asp; S.throwDistMin = tdMin; S.throwDistMax = tdMax;
-  S.mountHeight = mh; S.unit = unit;
+  S.mountHeight = mh;
 
-  const fv = v => unit === 'ft' ? (v/0.3048).toFixed(1) : v.toFixed(2);
-  const ul = unit === 'ft' ? 'feet' : 'metres';
+  const long = UNIT_LONG[S.unit];
+  const u    = UNIT_LABELS[S.unit];
+  const fv   = v => fromMetres(v).toFixed(S.unit==='in'?1:S.unit==='cm'?0:2);
+  const areaDisp = (S.unit==='m') ? area.toFixed(2)+' m²' :
+                   (S.unit==='ft') ? (area/0.0929).toFixed(1)+' ft²' :
+                   (S.unit==='cm') ? (area*10000).toFixed(0)+' cm²' :
+                                     (area/0.00064516).toFixed(0)+' in²';
 
   document.getElementById('res-throw-min').textContent = fv(tdMin);
   document.getElementById('res-throw-max').textContent = fv(tdMax);
-  document.getElementById('res-throw-min-u').textContent = ul;
-  document.getElementById('res-throw-max-u').textContent = ul;
+  document.getElementById('res-throw-min-u').textContent = long;
+  document.getElementById('res-throw-max-u').textContent = long;
   document.getElementById('res-sh').textContent   = fv(sh);
+  document.getElementById('res-sh-u').textContent = long;
   document.getElementById('res-diag').textContent  = diag.toFixed(0);
-  document.getElementById('res-area').textContent  = area.toFixed(2);
+  document.getElementById('res-area').textContent  = areaDisp;
+  document.getElementById('res-area-u').textContent = '';
   document.getElementById('res-fl').textContent    = fl.toFixed(1);
 
   const luxPct = Math.min(100, (lux / 2000) * 100);
@@ -488,7 +589,7 @@ function calculate() {
     lux < 1000 ? 'Good – some ambient OK' :
     lux < 2000 ? 'Excellent – bright environments' : 'Very High – outdoor capable';
 
-  document.getElementById('ib-throw').textContent = tdMin.toFixed(1)+'m – '+tdMax.toFixed(1)+'m';
+  document.getElementById('ib-throw').textContent = fmtDist(tdMin)+' – '+fmtDist(tdMax);
   document.getElementById('ib-lm').textContent    = lm.toLocaleString()+' lm';
   document.getElementById('ib-lux').textContent   = Math.round(lux)+' lux';
 
@@ -525,9 +626,6 @@ function drawEmpty() {
 }
 
 // ─── HELPERS ─────────────────────────────────────────────────
-function fd(v) { // format distance
-  return S.unit === 'ft' ? (v/0.3048).toFixed(1)+'ft' : v.toFixed(2)+'m';
-}
 
 function dimLineH(x1, x2, y, label, color, dashed) {
   ctx.save();
@@ -967,60 +1065,93 @@ function showNotif(msg, isErr) {
   el._t = setTimeout(() => el.classList.remove('show'), 2600);
 }
 
-// ─── DB SEARCH ───────────────────────────────────────────────
-async function searchProjectorDB() {
+// ─── LIVE DB SEARCH ──────────────────────────────────────────
+let _searchTimer = null;
+let _lastQuery   = '';
+
+function onSearchInput() {
   const query = document.getElementById('dbSearch').value.trim();
-  if (!query) { showNotif('Enter a model name', true); return; }
-  const res = document.getElementById('dbResults');
-  res.innerHTML = '<div class="db-status">Searching projector-database.com…</div>';
+  const res   = document.getElementById('dbResults');
+  clearTimeout(_searchTimer);
+  if (query.length < 3) {
+    res.classList.remove('open');
+    res.innerHTML = '';
+    return;
+  }
+  if (query === _lastQuery) return;
+  res.innerHTML = '<div class="db-status">Waiting…</div>';
   res.classList.add('open');
+  _searchTimer = setTimeout(() => runSearch(query), 350);
+}
+
+async function runSearch(query) {
+  _lastQuery = query;
+  const res = document.getElementById('dbResults');
+  const spinner = document.getElementById('searchSpinner');
+  res.innerHTML = '<div class="db-status">Searching databases…</div>';
+  res.classList.add('open');
+  spinner.classList.add('active');
   try {
     const resp = await fetch('https://api.anthropic.com/v1/messages', {
-      method:'POST',
-      headers:{'Content-Type':'application/json'},
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        model:'claude-sonnet-4-20250514',
-        max_tokens:1000,
-        tools:[{type:'web_search_20250305',name:'web_search'}],
-        system:'Return ONLY a valid JSON array. No markdown, no preamble, no explanation.',
-        messages:[{role:'user',content:`Search projector-database.com for: "${query}". Return a JSON array of up to 5 results:
-[{"name":"Full model","brand":"Brand","lumens":5000,"throwMin":1.38,"throwMax":2.22,"aspect":"16:9","resolution":"1920x1200"}]
-Use null for unknown values. Only real specs.`}]
+        model: 'claude-sonnet-4-20250514',
+        max_tokens: 1000,
+        tools: [{ type: 'web_search_20250305', name: 'web_search' }],
+        system: 'Return ONLY a valid JSON array. No markdown, no preamble, no explanation.',
+        messages: [{ role: 'user', content:
+          `Search projector-database.com/pro/index-en.php AND projectorcentral.com/projectors.cfm for: "${query}".
+Return a JSON array of up to 6 results:
+[{"name":"Full model","brand":"Brand","lumens":5000,"throwMin":1.38,"throwMax":2.22,"aspect":"16:9","resolution":"1920x1200","source":"projector-database.com"}]
+Use null for unknown. Only real verified specs from those two sites.` }]
       })
     });
     const data = await resp.json();
-    const txt  = (data.content||[]).filter(b=>b.type==='text').map(b=>b.text).join('');
+    // Gather text from all text blocks (may come after tool_use blocks)
+    const txt = (data.content || []).filter(b => b.type === 'text').map(b => b.text).join('');
     const s = txt.indexOf('['), e = txt.lastIndexOf(']');
-    if (s===-1) throw new Error('No data found');
-    const list = JSON.parse(txt.slice(s,e+1));
-    if (!list.length) { res.innerHTML='<div class="db-status">No results found</div>'; return; }
+    if (s === -1) throw new Error('No results');
+    const list = JSON.parse(txt.slice(s, e + 1));
+    if (!list.length) { res.innerHTML = '<div class="db-status">No results found</div>'; return; }
     window._dbList = list;
-    res.innerHTML = list.map((p,i)=>`
+    res.innerHTML = list.map((p, i) => `
       <div class="db-result-item" onclick="applyProjector(${i})">
         <div class="db-name">${p.name}</div>
-        <div class="db-meta">${p.lumens||'?'}lm · TR ${p.throwMin||'?'}–${p.throwMax||'?'}:1 · ${p.aspect||'?'} · ${p.resolution||'?'}</div>
+        <div class="db-meta">${p.lumens || '?'}lm · TR ${p.throwMin || '?'}–${p.throwMax || '?'}:1 · ${p.aspect || '?'} · ${p.resolution || '?'}</div>
+        <div class="db-meta" style="color:rgba(0,229,255,0.35);margin-top:1px">via ${p.source || 'database'}</div>
       </div>`).join('');
   } catch(e) {
-    res.innerHTML=`<div class="db-status" style="color:#ff6060">Search failed: ${e.message}</div>`;
+    res.innerHTML = `<div class="db-status" style="color:#ff6060">Search failed: ${e.message}</div>`;
+  } finally {
+    spinner.classList.remove('active');
   }
 }
 
 function applyProjector(i) {
-  const p = (window._dbList||[])[i]; if (!p) return;
+  const p = (window._dbList || [])[i]; if (!p) return;
   if (p.throwMin) document.getElementById('throwMin').value = p.throwMin;
-  if (p.throwMax) document.getElementById('throwMax').value = p.throwMax||p.throwMin;
+  if (p.throwMax) document.getElementById('throwMax').value = p.throwMax || p.throwMin;
   if (p.lumens)   document.getElementById('lumens').value   = p.lumens;
   if (p.aspect) {
-    const m = {'16:9':'1.778','4:3':'1.333','16:10':'1.6'};
+    const m = { '16:9':'1.778','4:3':'1.333','16:10':'1.6' };
     if (m[p.aspect]) document.getElementById('aspectRatio').value = m[p.aspect];
   }
   document.getElementById('dbResults').classList.remove('open');
-  showNotif('Loaded: '+p.name);
+  document.getElementById('dbSearch').value = p.name;
+  _lastQuery = p.name;
+  showNotif('Loaded: ' + p.name);
   calculate();
 }
 
 // ─── INIT ────────────────────────────────────────────────────
-document.getElementById('dbSearch').addEventListener('keydown', e => e.key==='Enter' && searchProjectorDB());
+document.getElementById('dbSearch').addEventListener('input', onSearchInput);
+document.getElementById('dbSearch').addEventListener('keydown', e => { if (e.key === 'Escape') { document.getElementById('dbResults').classList.remove('open'); } });
+document.addEventListener('click', e => {
+  if (!e.target.closest('.search-wrap') && !e.target.closest('.db-results'))
+    document.getElementById('dbResults').classList.remove('open');
+});
+updatePresetChips();
 resizeCanvas();
 drawEmpty();
 </script>
