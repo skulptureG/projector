@@ -182,6 +182,56 @@
   }
   .view-tab:hover { border-color:var(--accent); color:var(--text); }
   .view-tab.active { background:var(--accent); color:var(--bg); border-color:var(--accent); }
+  .view-tab.split-active { background: rgba(127,255,0,0.18); color:var(--accent3); border-color:var(--accent3); }
+
+  /* Split view container */
+  .split-wrap {
+    display:grid; width:100%; height:100%;
+    grid-template-columns: 1fr 1fr;
+    grid-template-rows: 1fr;
+  }
+  .split-wrap.vert { grid-template-columns: 1fr; grid-template-rows: 1fr 1fr; }
+  .split-pane {
+    position:relative; overflow:hidden;
+    border-right:1px solid var(--border);
+  }
+  .split-pane:last-child { border-right:none; }
+  .split-pane canvas { width:100%; height:100%; display:block; }
+  .split-label {
+    position:absolute; top:8px; left:10px; z-index:5;
+    font-family:'Share Tech Mono',monospace; font-size:9px;
+    color:var(--accent3); letter-spacing:0.15em; opacity:0.75;
+    pointer-events:none;
+  }
+
+  /* Coverage legend */
+  .legend {
+    position:absolute; bottom:14px; right:14px;
+    display:flex; flex-direction:column; gap:5px; z-index:10;
+  }
+  .legend-item { display:flex; align-items:center; gap:6px; font-family:'Share Tech Mono',monospace; font-size:9px; color:var(--text-dim); }
+  .legend-swatch { width:12px; height:12px; border:1px solid rgba(255,255,255,0.15); flex-shrink:0; }
+
+  /* Target screen orientation selector */
+  .orient-pills { display:flex; gap:0; border:1px solid var(--border); overflow:hidden; margin-bottom:8px; }
+  .orient-pill {
+    flex:1; background:var(--bg); border:none; color:var(--text-dim);
+    font-family:'Share Tech Mono',monospace; font-size:10px;
+    padding:6px 0; cursor:pointer; transition:all 0.15s; text-align:center;
+    border-right:1px solid var(--border);
+  }
+  .orient-pill:last-child { border-right:none; }
+  .orient-pill.active { background:rgba(127,255,0,0.1); color:var(--accent3); }
+
+  /* Split selector row */
+  .split-sel { display:flex; gap:4px; flex-wrap:wrap; margin-top:5px; }
+  .split-btn {
+    flex:1; min-width:70px; background:var(--bg); border:1px solid var(--border); color:var(--text-dim);
+    font-family:'Share Tech Mono',monospace; font-size:9px; letter-spacing:0.08em;
+    padding:6px 4px; cursor:pointer; transition:all 0.15s; text-align:center;
+  }
+  .split-btn:hover { border-color:var(--accent3); color:var(--accent3); }
+  .split-btn.active { background:rgba(127,255,0,0.08); border-color:var(--accent3); color:var(--accent3); }
 
   .axis-hint {
     position:absolute; bottom:14px; left:14px;
@@ -209,7 +259,7 @@
 
 <header>
   <div class="logo">Throw<span>CAD</span> — Projector Visualiser</div>
-  <div class="header-badge">v2.3 // MULTI-UNIT + LIVE SEARCH</div>
+  <div class="header-badge">v2.4 // TARGET + SPLIT VIEW</div>
 </header>
 
 <div class="layout">
@@ -295,6 +345,55 @@
     </div>
 
     <div class="section">
+      <div class="section-label">Target Screen / Surface</div>
+      <div class="field">
+        <label>Target Width <span style="color:var(--accent3)">(what you want to fill)</span></label>
+        <div class="input-row">
+          <input type="number" id="targetWidth" value="3.0" step="0.1" min="0.1" max="9999">
+          <span class="unit" id="twUnit">m</span>
+        </div>
+      </div>
+      <div class="field">
+        <label>Target Height</label>
+        <div class="input-row">
+          <input type="number" id="targetHeight" value="1.69" step="0.1" min="0.1" max="9999">
+          <span class="unit" id="thUnit">m</span>
+        </div>
+        <div style="margin-top:5px">
+          <div class="orient-pills">
+            <button class="orient-pill active" id="tAspLock" onclick="lockTargetToAspect()">Lock to projector AR</button>
+            <button class="orient-pill" id="tAspFree" onclick="freeTargetAspect()">Custom</button>
+          </div>
+        </div>
+      </div>
+      <div class="field">
+        <label>Coverage Overlay</label>
+        <div class="orient-pills">
+          <button class="orient-pill active" id="ovOn"  onclick="setOverlay(true)">ON</button>
+          <button class="orient-pill"        id="ovOff" onclick="setOverlay(false)">OFF</button>
+        </div>
+        <div class="tip" style="margin-top:6px">
+          <span style="color:#00c85a">■</span> Green = projected area covers target &nbsp;
+          <span style="color:#e03030">■</span> Red = target not covered
+        </div>
+      </div>
+    </div>
+
+    <div class="section">
+      <div class="section-label">View Layout</div>
+      <div class="field">
+        <label>Split View</label>
+        <div class="split-sel">
+          <button class="split-btn active" id="sv-single" onclick="setSplitView('single')">Single</button>
+          <button class="split-btn" id="sv-side-top"  onclick="setSplitView('side-top')">Side+Top</button>
+          <button class="split-btn" id="sv-side-3d"   onclick="setSplitView('side-3d')">Side+3D</button>
+          <button class="split-btn" id="sv-top-3d"    onclick="setSplitView('top-3d')">Top+3D</button>
+          <button class="split-btn" id="sv-all3"      onclick="setSplitView('all3')">All 3</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="section">
       <div class="section-label">Mount Mode</div>
       <div class="mount-grid">
         <button class="mount-btn active" onclick="setMount('floor')" id="mount-floor">
@@ -362,6 +461,11 @@
           <div class="r-value" id="res-fl">—</div>
           <div class="r-unit">fl (SMPTE: 14–22)</div>
         </div>
+        <div class="result-card" id="coverage-card" style="border-color:rgba(127,255,0,0.25);grid-column:1/-1;">
+          <div class="r-label">Target Coverage</div>
+          <div class="r-value" id="res-coverage" style="font-size:15px;color:var(--accent3)">—</div>
+          <div class="r-unit" id="res-coverage-u">set target screen above</div>
+        </div>
       </div>
       <div class="lux-bar-wrap">
         <div class="lux-label">Surface Luminance</div>
@@ -383,7 +487,29 @@
       <button class="view-tab" onclick="setView('top')" id="tab-top">TOP</button>
       <button class="view-tab" onclick="setView('3d')" id="tab-3d">3D</button>
     </div>
-    <canvas id="mainCanvas"></canvas>
+    <!-- Single view canvas -->
+    <canvas id="mainCanvas" style="display:block;width:100%;height:100%;"></canvas>
+    <!-- Split view container (hidden initially) -->
+    <div class="split-wrap" id="splitWrap" style="display:none;position:absolute;inset:0;">
+      <div class="split-pane" id="pane0">
+        <canvas id="canvas0"></canvas>
+        <div class="split-label" id="label0">SIDE</div>
+      </div>
+      <div class="split-pane" id="pane1">
+        <canvas id="canvas1"></canvas>
+        <div class="split-label" id="label1">TOP</div>
+      </div>
+      <div class="split-pane" id="pane2" style="display:none;">
+        <canvas id="canvas2"></canvas>
+        <div class="split-label" id="label2">3D</div>
+      </div>
+    </div>
+    <!-- Legend -->
+    <div class="legend" id="coverageLegend" style="display:none;">
+      <div class="legend-item"><div class="legend-swatch" style="background:rgba(0,200,90,0.5)"></div>Covered</div>
+      <div class="legend-item"><div class="legend-swatch" style="background:rgba(220,40,40,0.5)"></div>Not covered</div>
+      <div class="legend-item"><div class="legend-swatch" style="background:rgba(0,229,255,0.3)"></div>Projected</div>
+    </div>
     <div class="axis-hint" id="axisHint">
       <span>← HORIZONTAL →</span>
       <span>↕ VERTICAL</span>
@@ -409,7 +535,11 @@ const S = {
   lumens: 5000, screenWidth: 3.0, screenHeight: 1.6875,
   aspect: 1.778, mountMode: 'floor', mountHeight: 3.0,
   unit: 'm', throwDistMin: 0, throwDistMax: 0,
-  currentView: 'side', angle3d: 25, animating: false
+  currentView: 'side', angle3d: 25, animating: false,
+  // Target screen (metres internally)
+  targetWidth: 3.0, targetHeight: 1.6875, targetLocked: true, overlayOn: true,
+  // Split view
+  splitMode: 'single'  // 'single' | 'side-top' | 'side-3d' | 'top-3d' | 'all3'
 };
 
 // ─── UNIT CONVERSION HELPERS ─────────────────────────────────
@@ -442,6 +572,13 @@ function fd(v) { return fmtDist(v); }
 
 const canvas = document.getElementById('mainCanvas');
 const ctx = canvas.getContext('2d');
+// Split-view canvases
+const canvases = [
+  document.getElementById('canvas0'),
+  document.getElementById('canvas1'),
+  document.getElementById('canvas2')
+];
+const ctxs = canvases.map(c => c.getContext('2d'));
 let W = 0, H = 0;
 
 // ─── RESIZE ──────────────────────────────────────────────────
@@ -449,35 +586,54 @@ function resizeCanvas() {
   const wrap = document.getElementById('canvasWrap');
   W = wrap.clientWidth;
   H = wrap.clientHeight;
-  canvas.width  = W;
-  canvas.height = H;
-  S.throwDistMax > 0 ? drawAll() : drawEmpty();
+
+  if (S.splitMode === 'single') {
+    canvas.width  = W;
+    canvas.height = H;
+    S.throwDistMax > 0 ? drawAll() : drawEmpty();
+  } else {
+    resizeSplitCanvases();
+    S.throwDistMax > 0 ? drawAll() : drawEmpty();
+  }
 }
 window.addEventListener('resize', resizeCanvas);
+
+function resizeSplitCanvases() {
+  const panes = ['pane0','pane1','pane2'];
+  panes.forEach((id, i) => {
+    const pane = document.getElementById(id);
+    if (pane.style.display === 'none') return;
+    const w = pane.clientWidth, h = pane.clientHeight;
+    canvases[i].width  = w;
+    canvases[i].height = h;
+  });
+}
 
 // ─── UNIT SYSTEM ─────────────────────────────────────────────
 function setUnit(unit) {
   const oldUnit = S.unit;
   S.unit = unit;
 
-  // Update pill buttons
   document.querySelectorAll('.unit-pill').forEach(b =>
     b.classList.toggle('active', b.dataset.unit === unit));
 
-  // Convert existing input values
   const sw_m  = toMetres(parseFloat(document.getElementById('screenWidth').value)||3, oldUnit);
   const mh_m  = toMetres(parseFloat(document.getElementById('mountHeight').value)||3, oldUnit);
+  const tw_m  = toMetres(parseFloat(document.getElementById('targetWidth').value)||3, oldUnit);
+  const th_m  = toMetres(parseFloat(document.getElementById('targetHeight').value)||1.69, oldUnit);
 
   document.getElementById('screenWidth').value = +fromMetres(sw_m, unit).toFixed(unit==='m'?2:1);
   document.getElementById('mountHeight').value  = +fromMetres(mh_m, unit).toFixed(unit==='m'?2:1);
+  document.getElementById('targetWidth').value  = +fromMetres(tw_m, unit).toFixed(unit==='m'?2:1);
+  document.getElementById('targetHeight').value = +fromMetres(th_m, unit).toFixed(unit==='m'?2:1);
 
-  // Update displayed unit labels
   document.getElementById('swUnit').textContent = unit;
+  document.getElementById('twUnit').textContent = unit;
+  document.getElementById('thUnit').textContent = unit;
   updateHeightUnitLabel();
   updateResultUnitLabels();
   updatePresetChips();
 
-  // Re-draw if already calculated
   S.throwDistMax > 0 && drawAll();
 }
 
@@ -516,14 +672,118 @@ function setMount(mode) {
   S.throwDistMax > 0 && drawAll();
 }
 
-// ─── VIEW ────────────────────────────────────────────────────
+// ─── VIEW (SINGLE) ───────────────────────────────────────────
 function setView(v) {
+  if (S.splitMode !== 'single') return; // ignore in split mode
   S.currentView = v;
   ['side','top','3d'].forEach(t =>
     document.getElementById('tab-'+t).classList.toggle('active', t === v));
   document.getElementById('axisHint').style.display = v === '3d' ? 'none' : 'flex';
   if (v === '3d') start3DAnimation();
   else { S.animating = false; S.throwDistMax > 0 ? drawAll() : drawEmpty(); }
+}
+
+// ─── TARGET SCREEN ───────────────────────────────────────────
+function lockTargetToAspect() {
+  S.targetLocked = true;
+  document.getElementById('tAspLock').classList.add('active');
+  document.getElementById('tAspFree').classList.remove('active');
+  // Sync target height from current target width and projector AR
+  const tw = toMetres(parseFloat(document.getElementById('targetWidth').value)||3);
+  const th = tw / S.aspect;
+  document.getElementById('targetHeight').value = +fromMetres(th).toFixed(S.unit==='m'?2:1);
+  S.targetWidth = tw; S.targetHeight = th;
+  S.throwDistMax > 0 && drawAll();
+}
+function freeTargetAspect() {
+  S.targetLocked = false;
+  document.getElementById('tAspFree').classList.add('active');
+  document.getElementById('tAspLock').classList.remove('active');
+}
+function setOverlay(on) {
+  S.overlayOn = on;
+  document.getElementById('ovOn').classList.toggle('active', on);
+  document.getElementById('ovOff').classList.toggle('active', !on);
+  document.getElementById('coverageLegend').style.display = on && S.throwDistMax > 0 ? 'flex' : 'none';
+  S.throwDistMax > 0 && drawAll();
+}
+
+// Update target state from inputs
+function readTargetInputs() {
+  const twRaw = parseFloat(document.getElementById('targetWidth').value)||3;
+  const thRaw = parseFloat(document.getElementById('targetHeight').value)||1.69;
+  S.targetWidth  = toMetres(twRaw);
+  if (S.targetLocked) {
+    S.targetHeight = S.targetWidth / S.aspect;
+    document.getElementById('targetHeight').value = +fromMetres(S.targetHeight).toFixed(S.unit==='m'?2:1);
+  } else {
+    S.targetHeight = toMetres(thRaw);
+  }
+}
+
+// ─── SPLIT VIEW ───────────────────────────────────────────────
+const SPLIT_CONFIGS = {
+  'single':   { views: ['side'], vert: false },
+  'side-top': { views: ['side','top'], vert: false },
+  'side-3d':  { views: ['side','3d'],  vert: false },
+  'top-3d':   { views: ['top','3d'],   vert: false },
+  'all3':     { views: ['side','top','3d'], vert: false }
+};
+
+function setSplitView(mode) {
+  S.animating = false;
+  S.splitMode = mode;
+
+  // Update split buttons
+  document.querySelectorAll('.split-btn').forEach(b =>
+    b.classList.toggle('active', b.id === 'sv-'+mode));
+
+  const single = mode === 'single';
+  document.getElementById('mainCanvas').style.display = single ? 'block' : 'none';
+  document.getElementById('splitWrap').style.display  = single ? 'none' : 'block';
+
+  // In split mode, hide the single-view tabs (they still work as layout hints)
+  // Show/hide view tabs only in single mode
+  document.getElementById('tab-side').style.opacity = single ? '' : '0.4';
+  document.getElementById('tab-top').style.opacity  = single ? '' : '0.4';
+  document.getElementById('tab-3d').style.opacity   = single ? '' : '0.4';
+
+  if (!single) {
+    const cfg = SPLIT_CONFIGS[mode];
+    const views = cfg.views;
+    const wrap = document.getElementById('splitWrap');
+    wrap.className = 'split-wrap';
+
+    // Configure grid
+    if (mode === 'all3') {
+      wrap.style.gridTemplateColumns = '1fr 1fr';
+      wrap.style.gridTemplateRows = '1fr 1fr';
+    } else {
+      wrap.style.gridTemplateColumns = '1fr 1fr';
+      wrap.style.gridTemplateRows = '1fr';
+    }
+
+    // Show/hide panes and label them
+    [0,1,2].forEach(i => {
+      const pane = document.getElementById('pane'+i);
+      const lbl  = document.getElementById('label'+i);
+      if (i < views.length) {
+        pane.style.display = '';
+        lbl.textContent = views[i].toUpperCase();
+        if (mode === 'all3' && i === 2) {
+          // 3rd pane spans bottom in all3
+          pane.style.gridColumn = '1 / -1';
+        } else {
+          pane.style.gridColumn = '';
+        }
+      } else {
+        pane.style.display = 'none';
+      }
+    });
+  }
+
+  resizeCanvas();
+  S.throwDistMax > 0 ? drawAll() : drawEmpty();
 }
 
 // ─── PRESETS ─────────────────────────────────────────────────
@@ -552,7 +812,7 @@ function calculate() {
   const tdMin = tMin * sw;
   const tdMax = tMax * sw;
   const area  = sw * sh;
-  const diag  = Math.sqrt(sw*sw + sh*sh) * 39.3701; // always inches
+  const diag  = Math.sqrt(sw*sw + sh*sh) * 39.3701;
   const lux   = lm / area;
   const fl    = lux * 0.0929;
 
@@ -560,6 +820,27 @@ function calculate() {
   S.lumens = lm; S.screenWidth = sw; S.screenHeight = sh;
   S.aspect = asp; S.throwDistMin = tdMin; S.throwDistMax = tdMax;
   S.mountHeight = mh;
+
+  // Target screen
+  readTargetInputs();
+  if (S.targetLocked) {
+    S.targetHeight = S.targetWidth / asp;
+    document.getElementById('targetHeight').value = +fromMetres(S.targetHeight).toFixed(S.unit==='m'?2:1);
+  }
+
+  // Coverage: how much of target is covered by projected image (at max throw = widest beam)
+  const covW = Math.min(sw, S.targetWidth)  / S.targetWidth  * 100;
+  const covH = Math.min(sh, S.targetHeight) / S.targetHeight * 100;
+  const covPct = Math.min(covW, covH);
+  const fullyCovers = sw >= S.targetWidth - 0.001 && sh >= S.targetHeight - 0.001;
+  const coverageText = covPct.toFixed(1) + '% of target covered';
+  const coverageNote = fullyCovers ? '✓ Full coverage at max throw' :
+    `Projected: ${fd(sw)}×${fd(sh)} · Target: ${fd(S.targetWidth)}×${fd(S.targetHeight)}`;
+  document.getElementById('res-coverage').textContent = coverageText;
+  document.getElementById('res-coverage-u').textContent = coverageNote;
+  document.getElementById('res-coverage').style.color =
+    covPct >= 99 ? 'var(--accent3)' : covPct >= 70 ? '#ffcc00' : '#e05050';
+  document.getElementById('coverageLegend').style.display = S.overlayOn ? 'flex' : 'none';
 
   const long = UNIT_LONG[S.unit];
   const u    = UNIT_LABELS[S.unit];
@@ -593,393 +874,444 @@ function calculate() {
   document.getElementById('ib-lm').textContent    = lm.toLocaleString()+' lm';
   document.getElementById('ib-lux').textContent   = Math.round(lux)+' lux';
 
-  S.currentView === '3d' ? start3DAnimation() : drawAll();
+  if (S.splitMode === 'single' && S.currentView === '3d') start3DAnimation();
+  else { S.animating = false; drawAll(); }
   showNotif('Calculations complete ✓');
 }
 
 // ─── DRAW ROUTER ─────────────────────────────────────────────
 function drawAll() {
-  ctx.clearRect(0, 0, W, H);
-  if (S.currentView === 'side') drawSideView();
-  else if (S.currentView === 'top') drawTopView();
-  else drawPerspView(S.angle3d);
+  if (S.splitMode === 'single') {
+    ctx.clearRect(0, 0, W, H);
+    if (S.currentView === 'side') drawSideView(ctx, W, H);
+    else if (S.currentView === 'top') drawTopView(ctx, W, H);
+    else drawPerspView(S.angle3d, ctx, W, H);
+  } else {
+    drawSplit();
+  }
 }
 
 function drawEmpty() {
-  ctx.clearRect(0, 0, W, H);
-  ctx.font = '11px "Share Tech Mono"';
-  ctx.fillStyle = 'rgba(0,229,255,0.3)';
-  ctx.textAlign = 'center';
-  ctx.fillText('ENTER VALUES AND PRESS CALCULATE', W/2, H/2);
-  ctx.fillStyle = 'rgba(90,106,122,0.4)';
-  ctx.font = '10px "Share Tech Mono"';
-  ctx.fillText('Projection beam will render here', W/2, H/2+18);
-  ctx.textAlign = 'left';
-  // faint projector icon
-  ctx.save();
-  ctx.globalAlpha = 0.25;
-  ctx.strokeStyle = 'rgba(0,229,255,0.6)';
-  ctx.lineWidth = 1.5;
-  ctx.strokeRect(W/2-30, H/2-60, 60, 30);
-  ctx.beginPath(); ctx.arc(W/2+24, H/2-45, 7, 0, Math.PI*2); ctx.stroke();
-  ctx.restore();
-}
-
-// ─── HELPERS ─────────────────────────────────────────────────
-
-function dimLineH(x1, x2, y, label, color, dashed) {
-  ctx.save();
-  ctx.strokeStyle = color;
-  ctx.fillStyle   = color;
-  ctx.lineWidth = 1;
-  ctx.setLineDash(dashed ? [4,4] : []);
-  ctx.beginPath();
-  // ticks
-  ctx.moveTo(x1, y-5); ctx.lineTo(x1, y+5);
-  ctx.moveTo(x2, y-5); ctx.lineTo(x2, y+5);
-  // line
-  ctx.moveTo(x1, y); ctx.lineTo(x2, y);
-  ctx.stroke();
-  ctx.setLineDash([]);
-  // arrows
-  ctx.beginPath();
-  ctx.moveTo(x1+8,y-4); ctx.lineTo(x1,y); ctx.lineTo(x1+8,y+4);
-  ctx.moveTo(x2-8,y-4); ctx.lineTo(x2,y); ctx.lineTo(x2-8,y+4);
-  ctx.stroke();
-  ctx.font = '10px "Share Tech Mono"';
-  ctx.textAlign = 'center';
-  ctx.fillText(label, (x1+x2)/2, y-7);
-  ctx.restore();
-}
-
-function dimLineV(y1, y2, x, label) {
-  ctx.save();
-  ctx.strokeStyle = 'rgba(200,212,224,0.45)';
-  ctx.fillStyle   = 'rgba(200,212,224,0.6)';
-  ctx.lineWidth = 1; ctx.setLineDash([]);
-  ctx.beginPath();
-  ctx.moveTo(x-5,y1); ctx.lineTo(x+5,y1);
-  ctx.moveTo(x,y1); ctx.lineTo(x,y2);
-  ctx.moveTo(x-5,y2); ctx.lineTo(x+5,y2);
-  ctx.stroke();
-  ctx.save();
-  ctx.translate(x+13, (y1+y2)/2);
-  ctx.rotate(Math.PI/2);
-  ctx.font = '10px "Share Tech Mono"'; ctx.textAlign = 'center';
-  ctx.fillText(label, 0, 0);
-  ctx.restore();
-  ctx.restore();
-}
-
-function drawProjBodyH(cx, cy, inverted) {
-  ctx.save();
-  ctx.translate(cx, cy);
-  if (inverted) ctx.scale(1,-1);
-  ctx.fillStyle   = '#1a2230';
-  ctx.strokeStyle = 'rgba(0,229,255,0.6)';
-  ctx.lineWidth   = 1.5;
-  ctx.fillRect(-22,-12,44,24); ctx.strokeRect(-22,-12,44,24);
-  // Lens on right side
-  ctx.beginPath(); ctx.arc(20, 0, 6, 0, Math.PI*2);
-  ctx.fillStyle = 'rgba(0,229,255,0.35)'; ctx.fill();
-  ctx.strokeStyle = 'rgba(0,229,255,0.9)'; ctx.lineWidth=1.5; ctx.stroke();
-  // Glow ring
-  ctx.beginPath(); ctx.arc(20, 0, 9, 0, Math.PI*2);
-  ctx.strokeStyle = 'rgba(0,229,255,0.15)'; ctx.stroke();
-  // Feet (floor mode only)
-  if (!inverted) {
-    ctx.strokeStyle = 'rgba(0,229,255,0.35)'; ctx.lineWidth = 1;
-    [-10,10].forEach(xo => { ctx.beginPath(); ctx.moveTo(xo,12); ctx.lineTo(xo,18); ctx.stroke(); });
+  function emptyCanvas(c, w, h) {
+    c.clearRect(0, 0, w, h);
+    c.font = '10px "Share Tech Mono"';
+    c.fillStyle = 'rgba(0,229,255,0.3)';
+    c.textAlign = 'center';
+    c.fillText('ENTER VALUES AND PRESS CALCULATE', w/2, h/2);
+    c.fillStyle = 'rgba(90,106,122,0.4)';
+    c.font = '9px "Share Tech Mono"';
+    c.fillText('Projection beam will render here', w/2, h/2+16);
+    c.textAlign = 'left';
+    c.save(); c.globalAlpha = 0.18;
+    c.strokeStyle = 'rgba(0,229,255,0.6)'; c.lineWidth = 1.5;
+    c.strokeRect(w/2-25, h/2-50, 50, 25);
+    c.beginPath(); c.arc(w/2+19, h/2-37, 6, 0, Math.PI*2); c.stroke();
+    c.restore();
   }
-  ctx.restore();
+  if (S.splitMode === 'single') {
+    emptyCanvas(ctx, W, H);
+  } else {
+    resizeSplitCanvases();
+    const cfg = SPLIT_CONFIGS[S.splitMode];
+    cfg.views.forEach((v, i) => {
+      const c = canvases[i], cx = ctxs[i];
+      emptyCanvas(cx, c.width, c.height);
+    });
+  }
 }
 
-function drawProjBodyDown(cx, cy) {
-  ctx.save();
-  ctx.translate(cx, cy);
-  ctx.fillStyle   = '#1a2230';
-  ctx.strokeStyle = 'rgba(0,229,255,0.6)';
-  ctx.lineWidth   = 1.5;
-  ctx.fillRect(-22,-8,44,20); ctx.strokeRect(-22,-8,44,20);
-  // Lens on bottom
-  ctx.beginPath(); ctx.arc(0, 16, 6, 0, Math.PI*2);
-  ctx.fillStyle = 'rgba(0,229,255,0.35)'; ctx.fill();
-  ctx.strokeStyle = 'rgba(0,229,255,0.9)'; ctx.lineWidth=1.5; ctx.stroke();
-  ctx.beginPath(); ctx.arc(0, 16, 9, 0, Math.PI*2);
-  ctx.strokeStyle = 'rgba(0,229,255,0.15)'; ctx.stroke();
-  // Mount bracket
-  ctx.strokeStyle = 'rgba(0,229,255,0.4)'; ctx.lineWidth = 1;
-  ctx.beginPath(); ctx.moveTo(-8,-8); ctx.lineTo(-8,-16); ctx.moveTo(8,-8); ctx.lineTo(8,-16);
-  ctx.moveTo(-8,-16); ctx.lineTo(8,-16); ctx.stroke();
-  ctx.restore();
+function drawSplit() {
+  resizeSplitCanvases();
+  const cfg = SPLIT_CONFIGS[S.splitMode];
+  cfg.views.forEach((v, i) => {
+    const c = canvases[i];
+    const cx = ctxs[i];
+    const w = c.width, h = c.height;
+    cx.clearRect(0, 0, w, h);
+    if (v === 'side') drawSideView(cx, w, h);
+    else if (v === 'top') drawTopView(cx, w, h);
+    else if (v === '3d') {
+      drawPerspView(S.angle3d, cx, w, h);
+      // If 3D in split, start animation
+      if (!S.animating) startSplitAnimation();
+    }
+  });
 }
 
-function beamFill(gx1,gy1,gx2,gy2, a0, a1, a2) {
-  const g = ctx.createLinearGradient(gx1,gy1,gx2,gy2);
+let _splitAnimT = 0;
+function startSplitAnimation() {
+  S.animating = true;
+  (function frame() {
+    if (!S.animating) return;
+    _splitAnimT += 0.006;
+    S.angle3d = 25 + Math.sin(_splitAnimT) * 28;
+    const cfg = SPLIT_CONFIGS[S.splitMode];
+    cfg.views.forEach((v, i) => {
+      if (v === '3d') {
+        const c = canvases[i], cx = ctxs[i];
+        cx.clearRect(0, 0, c.width, c.height);
+        drawPerspView(S.angle3d, cx, c.width, c.height);
+      }
+    });
+    requestAnimationFrame(frame);
+  })();
+}
+
+// ─── HELPERS (ctx-aware) ─────────────────────────────────────
+
+function dimLineH(c, x1, x2, y, label, color, dashed) {
+  c.save();
+  c.strokeStyle = color; c.fillStyle = color; c.lineWidth = 1;
+  c.setLineDash(dashed ? [4,4] : []);
+  c.beginPath();
+  c.moveTo(x1, y-5); c.lineTo(x1, y+5);
+  c.moveTo(x2, y-5); c.lineTo(x2, y+5);
+  c.moveTo(x1, y);   c.lineTo(x2, y);
+  c.stroke(); c.setLineDash([]);
+  c.beginPath();
+  c.moveTo(x1+8,y-4); c.lineTo(x1,y); c.lineTo(x1+8,y+4);
+  c.moveTo(x2-8,y-4); c.lineTo(x2,y); c.lineTo(x2-8,y+4);
+  c.stroke();
+  c.font = '10px "Share Tech Mono"'; c.textAlign = 'center';
+  c.fillText(label, (x1+x2)/2, y-7);
+  c.restore();
+}
+
+function dimLineV(c, y1, y2, x, label) {
+  c.save();
+  c.strokeStyle = 'rgba(200,212,224,0.45)'; c.fillStyle = 'rgba(200,212,224,0.6)';
+  c.lineWidth = 1; c.setLineDash([]);
+  c.beginPath();
+  c.moveTo(x-5,y1); c.lineTo(x+5,y1);
+  c.moveTo(x,y1);   c.lineTo(x,y2);
+  c.moveTo(x-5,y2); c.lineTo(x+5,y2);
+  c.stroke();
+  c.save();
+  c.translate(x+13, (y1+y2)/2);
+  c.rotate(Math.PI/2);
+  c.font = '10px "Share Tech Mono"'; c.textAlign = 'center';
+  c.fillText(label, 0, 0);
+  c.restore(); c.restore();
+}
+
+function drawProjBodyH(c, cx, cy, inverted) {
+  c.save(); c.translate(cx, cy);
+  if (inverted) c.scale(1,-1);
+  c.fillStyle = '#1a2230'; c.strokeStyle = 'rgba(0,229,255,0.6)'; c.lineWidth = 1.5;
+  c.fillRect(-22,-12,44,24); c.strokeRect(-22,-12,44,24);
+  c.beginPath(); c.arc(20, 0, 6, 0, Math.PI*2);
+  c.fillStyle = 'rgba(0,229,255,0.35)'; c.fill();
+  c.strokeStyle = 'rgba(0,229,255,0.9)'; c.lineWidth=1.5; c.stroke();
+  c.beginPath(); c.arc(20, 0, 9, 0, Math.PI*2);
+  c.strokeStyle = 'rgba(0,229,255,0.15)'; c.stroke();
+  if (!inverted) {
+    c.strokeStyle = 'rgba(0,229,255,0.35)'; c.lineWidth = 1;
+    [-10,10].forEach(xo => { c.beginPath(); c.moveTo(xo,12); c.lineTo(xo,18); c.stroke(); });
+  }
+  c.restore();
+}
+
+function drawProjBodyDown(c, cx, cy) {
+  c.save(); c.translate(cx, cy);
+  c.fillStyle = '#1a2230'; c.strokeStyle = 'rgba(0,229,255,0.6)'; c.lineWidth = 1.5;
+  c.fillRect(-22,-8,44,20); c.strokeRect(-22,-8,44,20);
+  c.beginPath(); c.arc(0, 16, 6, 0, Math.PI*2);
+  c.fillStyle = 'rgba(0,229,255,0.35)'; c.fill();
+  c.strokeStyle = 'rgba(0,229,255,0.9)'; c.lineWidth=1.5; c.stroke();
+  c.beginPath(); c.arc(0, 16, 9, 0, Math.PI*2);
+  c.strokeStyle = 'rgba(0,229,255,0.15)'; c.stroke();
+  c.strokeStyle = 'rgba(0,229,255,0.4)'; c.lineWidth = 1;
+  c.beginPath(); c.moveTo(-8,-8); c.lineTo(-8,-16); c.moveTo(8,-8); c.lineTo(8,-16);
+  c.moveTo(-8,-16); c.lineTo(8,-16); c.stroke();
+  c.restore();
+}
+
+function beamFill(c, gx1,gy1,gx2,gy2, a0, a1, a2) {
+  const g = c.createLinearGradient(gx1,gy1,gx2,gy2);
   g.addColorStop(0, `rgba(0,229,255,${a0})`);
   g.addColorStop(0.4, `rgba(0,229,255,${a1})`);
   g.addColorStop(1, `rgba(0,229,255,${a2})`);
   return g;
 }
 
-function refLine(x1,y1,x2,y2,label,labelX,labelY) {
-  ctx.save();
-  ctx.strokeStyle = 'rgba(90,106,122,0.35)';
-  ctx.lineWidth = 1; ctx.setLineDash([10,6]);
-  ctx.beginPath(); ctx.moveTo(x1,y1); ctx.lineTo(x2,y2); ctx.stroke();
-  ctx.setLineDash([]);
-  ctx.font='9px "Share Tech Mono"'; ctx.fillStyle='rgba(90,106,122,0.6)';
-  ctx.fillText(label, labelX, labelY);
-  ctx.restore();
+function refLine(c, x1,y1,x2,y2,label,labelX,labelY) {
+  c.save();
+  c.strokeStyle = 'rgba(90,106,122,0.35)'; c.lineWidth = 1; c.setLineDash([10,6]);
+  c.beginPath(); c.moveTo(x1,y1); c.lineTo(x2,y2); c.stroke();
+  c.setLineDash([]);
+  c.font='9px "Share Tech Mono"'; c.fillStyle='rgba(90,106,122,0.6)';
+  c.fillText(label, labelX, labelY);
+  c.restore();
+}
+
+// ─── TARGET + COVERAGE OVERLAY ────────────────────────────────
+// Draw target screen overlay onto side/top view (c = context, coords = screen position)
+// projArea:  { x, y, w, h }  — the projected rectangle in canvas pixels
+// targetArea: { x, y, w, h } — the target rectangle in canvas pixels
+function drawCoverageOverlay(c, projArea, targetArea) {
+  if (!S.overlayOn) return;
+
+  // Union bounding box
+  const ux1 = Math.min(projArea.x, targetArea.x);
+  const uy1 = Math.min(projArea.y, targetArea.y);
+  const ux2 = Math.max(projArea.x + projArea.w, targetArea.x + targetArea.w);
+  const uy2 = Math.max(projArea.y + projArea.h, targetArea.y + targetArea.h);
+
+  // Red: target NOT covered (target minus intersection)
+  c.save();
+  // clip to target
+  c.beginPath();
+  c.rect(targetArea.x, targetArea.y, targetArea.w, targetArea.h);
+  c.clip();
+  // fill whole target red
+  c.fillStyle = 'rgba(220,40,40,0.35)';
+  c.fillRect(targetArea.x, targetArea.y, targetArea.w, targetArea.h);
+  // then cut out (draw green) where intersection is
+  const ix = Math.max(projArea.x, targetArea.x);
+  const iy = Math.max(projArea.y, targetArea.y);
+  const iw = Math.min(projArea.x+projArea.w, targetArea.x+targetArea.w) - ix;
+  const ih = Math.min(projArea.y+projArea.h, targetArea.y+targetArea.h) - iy;
+  if (iw > 0 && ih > 0) {
+    c.fillStyle = 'rgba(0,200,90,0.35)';
+    c.fillRect(ix, iy, iw, ih);
+  }
+  c.restore();
+
+  // Target screen outline (dashed, green/white)
+  c.save();
+  c.strokeStyle = 'rgba(127,255,0,0.9)'; c.lineWidth = 2; c.setLineDash([6,4]);
+  c.strokeRect(targetArea.x, targetArea.y, targetArea.w, targetArea.h);
+  c.setLineDash([]);
+  c.font='9px "Share Tech Mono"'; c.fillStyle='rgba(127,255,0,0.9)'; c.textAlign='center';
+  c.fillText('TARGET', targetArea.x + targetArea.w/2, targetArea.y - 5);
+  c.restore();
 }
 
 // ─── SIDE VIEW ────────────────────────────────────────────────
-function drawSideView() {
+function drawSideView(c, W, H) {
   const PAD = 90;
   const mode = S.mountMode;
 
   if (mode === 'down') {
-    // ── DOWN: projector at top, beam points downward ──
-    const availH = H - PAD*2;
-    const availW = W - PAD*2;
-    // scale so throw distance fits vertically with room to breathe
-    const scl = Math.min(availH / (S.throwDistMax * 1.3), availW / (S.screenWidth * 3.5));
+    const availH = H - PAD*2, availW = W - PAD*2;
+    const allH = Math.max(S.throwDistMax, S.targetHeight) * 1.3;
+    const allW = Math.max(S.screenWidth, S.targetWidth) * 3.5;
+    const scl = Math.min(availH / allH, availW / allW);
 
-    const projX = W / 2;
-    const projY = PAD;
-    const screenY  = projY + S.throwDistMax * scl;
-    const screenL  = projX - S.screenWidth / 2 * scl;
-    const screenR  = projX + S.screenWidth / 2 * scl;
+    const projX = W / 2, projY = PAD;
+    const screenY = projY + S.throwDistMax * scl;
+    const screenL = projX - S.screenWidth / 2 * scl;
+    const screenR = projX + S.screenWidth / 2 * scl;
 
-    // Ceiling ref
-    refLine(0, projY - 20, W, projY - 20, 'CEILING', 10, projY - 24);
-    // Floor ref
-    refLine(0, screenY + 30, W, screenY + 30, 'FLOOR', 10, screenY + 42);
+    refLine(c, 0, projY - 20, W, projY - 20, 'CEILING', 10, projY - 24);
+    refLine(c, 0, screenY + 30, W, screenY + 30, 'FLOOR', 10, screenY + 42);
+
+    // Coverage overlay (top view for 'down' mode = just width strip)
+    const tL = projX - S.targetWidth/2*scl;
+    const tR = projX + S.targetWidth/2*scl;
+    drawCoverageOverlay(c,
+      { x: screenL, y: screenY-3, w: screenR-screenL, h: 6 },
+      { x: tL, y: screenY-8, w: tR-tL, h: 16 }
+    );
 
     // Beam fill
-    ctx.beginPath();
-    ctx.moveTo(projX, projY);
-    ctx.lineTo(screenL, screenY);
-    ctx.lineTo(screenR, screenY);
-    ctx.closePath();
-    ctx.fillStyle = beamFill(projX, projY, projX, screenY, 0.45, 0.15, 0.05);
-    ctx.fill();
+    c.beginPath(); c.moveTo(projX, projY); c.lineTo(screenL, screenY); c.lineTo(screenR, screenY); c.closePath();
+    c.fillStyle = beamFill(c, projX, projY, projX, screenY, 0.45, 0.15, 0.05); c.fill();
 
-    // Beam edges
-    ctx.strokeStyle = 'rgba(0,229,255,0.7)'; ctx.lineWidth = 1.5; ctx.setLineDash([]);
-    ctx.beginPath(); ctx.moveTo(projX,projY); ctx.lineTo(screenL,screenY); ctx.stroke();
-    ctx.beginPath(); ctx.moveTo(projX,projY); ctx.lineTo(screenR,screenY); ctx.stroke();
+    c.strokeStyle = 'rgba(0,229,255,0.7)'; c.lineWidth = 1.5; c.setLineDash([]);
+    c.beginPath(); c.moveTo(projX,projY); c.lineTo(screenL,screenY); c.stroke();
+    c.beginPath(); c.moveTo(projX,projY); c.lineTo(screenR,screenY); c.stroke();
 
-    // Min throw line
     const minFrac = S.throwDistMin / S.throwDistMax;
     const minY  = projY + S.throwDistMin * scl;
     const minHL = projX - S.screenWidth/2 * scl * minFrac;
     const minHR = projX + S.screenWidth/2 * scl * minFrac;
-    ctx.strokeStyle = 'rgba(255,107,0,0.9)'; ctx.lineWidth = 2; ctx.setLineDash([5,4]);
-    ctx.beginPath(); ctx.moveTo(minHL, minY); ctx.lineTo(minHR, minY); ctx.stroke();
-    ctx.setLineDash([]);
-    ctx.font='9px "Share Tech Mono"'; ctx.fillStyle='rgba(255,107,0,0.8)'; ctx.textAlign='center';
-    ctx.fillText('MIN THROW', projX, minY - 5);
-    ctx.textAlign = 'left';
+    c.strokeStyle = 'rgba(255,107,0,0.9)'; c.lineWidth = 2; c.setLineDash([5,4]);
+    c.beginPath(); c.moveTo(minHL, minY); c.lineTo(minHR, minY); c.stroke();
+    c.setLineDash([]);
+    c.font='9px "Share Tech Mono"'; c.fillStyle='rgba(255,107,0,0.8)'; c.textAlign='center';
+    c.fillText('MIN THROW', projX, minY - 5); c.textAlign = 'left';
 
-    // Screen
-    ctx.fillStyle = 'rgba(200,212,224,0.12)';
-    ctx.fillRect(screenL, screenY-3, screenR-screenL, 6);
-    ctx.strokeStyle = 'rgba(200,212,224,0.8)'; ctx.lineWidth = 2.5;
-    ctx.beginPath(); ctx.moveTo(screenL,screenY); ctx.lineTo(screenR,screenY); ctx.stroke();
+    c.fillStyle = 'rgba(200,212,224,0.12)';
+    c.fillRect(screenL, screenY-3, screenR-screenL, 6);
+    c.strokeStyle = 'rgba(200,212,224,0.8)'; c.lineWidth = 2.5;
+    c.beginPath(); c.moveTo(screenL,screenY); c.lineTo(screenR,screenY); c.stroke();
 
-    // Screen width label
-    ctx.font='10px "Share Tech Mono"'; ctx.fillStyle='rgba(200,212,224,0.6)'; ctx.textAlign='center';
-    ctx.fillText(fd(S.screenWidth), (screenL+screenR)/2, screenY+15);
-    ctx.textAlign='left';
+    c.font='10px "Share Tech Mono"'; c.fillStyle='rgba(200,212,224,0.6)'; c.textAlign='center';
+    c.fillText(fd(S.screenWidth), (screenL+screenR)/2, screenY+15); c.textAlign='left';
 
-    // Projector
-    drawProjBodyDown(projX, projY - 10);
+    drawProjBodyDown(c, projX, projY - 10);
+    dimLineV(c, projY, screenY, screenR + 30, fd(S.throwDistMax));
 
-    // Dim lines
-    const dimX = screenR + 30;
-    dimLineV(projY, screenY, dimX, fd(S.throwDistMax));
-
-    ctx.font='10px "Share Tech Mono"'; ctx.fillStyle='rgba(0,229,255,0.5)';
-    ctx.fillText('SIDE ELEVATION — CEILING DOWN', 10, 18);
+    c.font='10px "Share Tech Mono"'; c.fillStyle='rgba(0,229,255,0.5)';
+    c.fillText('SIDE ELEVATION — CEILING DOWN', 10, 18);
 
   } else {
-    // ── HORIZONTAL: floor or ceiling ──
-    const availW = W - PAD*2;
-    const availH = H - PAD*2;
-    // Scale so throw fits horizontally, screen height fits vertically
-    const scl = Math.min(availW / (S.throwDistMax * 1.3), availH / (S.screenHeight * 3.5));
+    const availW = W - PAD*2, availH = H - PAD*2;
+    const allW = Math.max(S.throwDistMax, 1) * 1.3;
+    const allH = Math.max(S.screenHeight, S.targetHeight) * 3.5;
+    const scl = Math.min(availW / allW, availH / allH);
 
-    const projX = PAD;
-    const projY = H / 2;
-    const screenX  = projX + S.throwDistMax * scl;
-    const screenT  = projY - S.screenHeight / 2 * scl;
-    const screenB  = projY + S.screenHeight / 2 * scl;
-    const beamH    = screenB - screenT;
-
+    const projX = PAD, projY = H / 2;
+    const screenX = projX + S.throwDistMax * scl;
+    const screenT = projY - S.screenHeight / 2 * scl;
+    const screenB = projY + S.screenHeight / 2 * scl;
+    const beamH   = screenB - screenT;
     const inv = mode === 'ceiling';
 
-    // Reference line (floor or ceiling)
     const refY = inv ? screenT - 50 : screenB + 50;
-    refLine(0, refY, W, refY, inv ? 'CEILING' : 'FLOOR', 10, refY + (inv ? -5 : 13));
+    refLine(c, 0, refY, W, refY, inv ? 'CEILING' : 'FLOOR', 10, refY + (inv ? -5 : 13));
 
-    // Beam fill
-    ctx.beginPath();
-    ctx.moveTo(projX, projY);
-    ctx.lineTo(screenX, screenT);
-    ctx.lineTo(screenX, screenB);
-    ctx.closePath();
-    ctx.fillStyle = beamFill(projX, projY, screenX, projY, 0.45, 0.15, 0.05);
-    ctx.fill();
+    // Coverage overlay
+    const tH2 = S.targetHeight / 2 * scl;
+    drawCoverageOverlay(c,
+      { x: screenX, y: screenT, w: 8, h: beamH },
+      { x: screenX - 4, y: projY - tH2, w: 16, h: tH2 * 2 }
+    );
 
-    // Beam edges
-    ctx.strokeStyle = 'rgba(0,229,255,0.7)'; ctx.lineWidth = 1.5; ctx.setLineDash([]);
-    ctx.beginPath(); ctx.moveTo(projX,projY); ctx.lineTo(screenX,screenT); ctx.stroke();
-    ctx.beginPath(); ctx.moveTo(projX,projY); ctx.lineTo(screenX,screenB); ctx.stroke();
+    // Beam
+    c.beginPath(); c.moveTo(projX, projY); c.lineTo(screenX, screenT); c.lineTo(screenX, screenB); c.closePath();
+    c.fillStyle = beamFill(c, projX, projY, screenX, projY, 0.45, 0.15, 0.05); c.fill();
+    c.strokeStyle = 'rgba(0,229,255,0.7)'; c.lineWidth = 1.5; c.setLineDash([]);
+    c.beginPath(); c.moveTo(projX,projY); c.lineTo(screenX,screenT); c.stroke();
+    c.beginPath(); c.moveTo(projX,projY); c.lineTo(screenX,screenB); c.stroke();
 
-    // Min throw indicator
-    const minX   = projX + S.throwDistMin * scl;
+    const minX  = projX + S.throwDistMin * scl;
     const minFrac = S.throwDistMin / S.throwDistMax;
-    const minHH  = beamH * minFrac / 2;
-    ctx.strokeStyle = 'rgba(255,107,0,0.9)'; ctx.lineWidth = 2; ctx.setLineDash([5,4]);
-    ctx.beginPath(); ctx.moveTo(minX, projY-minHH); ctx.lineTo(minX, projY+minHH); ctx.stroke();
-    ctx.setLineDash([]);
-    ctx.font='9px "Share Tech Mono"'; ctx.fillStyle='rgba(255,107,0,0.8)'; ctx.textAlign='center';
-    ctx.fillText('MIN', minX, projY-minHH-5);
-    ctx.textAlign='left';
+    const minHH = beamH * minFrac / 2;
+    c.strokeStyle = 'rgba(255,107,0,0.9)'; c.lineWidth = 2; c.setLineDash([5,4]);
+    c.beginPath(); c.moveTo(minX, projY-minHH); c.lineTo(minX, projY+minHH); c.stroke();
+    c.setLineDash([]);
+    c.font='9px "Share Tech Mono"'; c.fillStyle='rgba(255,107,0,0.8)'; c.textAlign='center';
+    c.fillText('MIN', minX, projY-minHH-5); c.textAlign='left';
 
-    // Screen
-    const scrGrad = ctx.createLinearGradient(screenX,screenT,screenX,screenB);
+    const scrGrad = c.createLinearGradient(screenX,screenT,screenX,screenB);
     scrGrad.addColorStop(0,'rgba(200,212,224,0.04)');
     scrGrad.addColorStop(0.5,'rgba(200,212,224,0.18)');
     scrGrad.addColorStop(1,'rgba(200,212,224,0.04)');
-    ctx.fillStyle = scrGrad;
-    ctx.fillRect(screenX, screenT, 8, beamH);
-    ctx.strokeStyle = 'rgba(200,212,224,0.9)'; ctx.lineWidth = 2.5;
-    ctx.beginPath(); ctx.moveTo(screenX,screenT); ctx.lineTo(screenX,screenB); ctx.stroke();
+    c.fillStyle = scrGrad;
+    c.fillRect(screenX, screenT, 8, beamH);
+    c.strokeStyle = 'rgba(200,212,224,0.9)'; c.lineWidth = 2.5;
+    c.beginPath(); c.moveTo(screenX,screenT); c.lineTo(screenX,screenB); c.stroke();
 
-    // Screen height label
-    ctx.font='10px "Share Tech Mono"'; ctx.fillStyle='rgba(200,212,224,0.6)';
-    ctx.fillText(fd(S.screenHeight), screenX+14, projY+4);
+    c.font='10px "Share Tech Mono"'; c.fillStyle='rgba(200,212,224,0.6)';
+    c.fillText(fd(S.screenHeight), screenX+14, projY+4);
 
-    // Projector body
-    drawProjBodyH(projX, projY, inv);
+    drawProjBodyH(c, projX, projY, inv);
 
-    // Dimension lines
     const dimY  = screenB + (inv ? -(beamH + 90) : 55);
     const dimY2 = screenB + (inv ? -(beamH + 70) : 35);
-    dimLineH(projX, screenX, dimY,  fd(S.throwDistMax), '#00e5ff', false);
-    dimLineH(projX, minX,    dimY2, fd(S.throwDistMin), '#ff6b00', true);
+    dimLineH(c, projX, screenX, dimY,  fd(S.throwDistMax), '#00e5ff', false);
+    dimLineH(c, projX, minX,    dimY2, fd(S.throwDistMin), '#ff6b00', true);
 
-    ctx.font='10px "Share Tech Mono"'; ctx.fillStyle='rgba(0,229,255,0.5)';
-    ctx.fillText('SIDE ELEVATION — '+(inv?'CEILING INVERTED':'FLOOR / TABLE'), 10, 18);
+    c.font='10px "Share Tech Mono"'; c.fillStyle='rgba(0,229,255,0.5)';
+    c.fillText('SIDE ELEVATION — '+(inv?'CEILING INVERTED':'FLOOR / TABLE'), 10, 18);
   }
 }
 
 // ─── TOP VIEW ────────────────────────────────────────────────
-function drawTopView() {
+function drawTopView(c, W, H) {
   const PAD = 90;
-  const availW = W - PAD*2;
-  const availH = H - PAD*2;
+  const availW = W - PAD*2, availH = H - PAD*2;
 
-  // For down-mode, top view shows the beam rectangle on the floor
   if (S.mountMode === 'down') {
-    const scl = Math.min(availW / (S.screenWidth * 2.5), availH / (S.screenHeight * 2.5));
+    const allW = Math.max(S.screenWidth, S.targetWidth) * 2.5;
+    const allH = Math.max(S.screenHeight, S.targetHeight) * 2.5;
+    const scl = Math.min(availW / allW, availH / allH);
     const cx = W/2, cy = H/2;
     const sw2 = S.screenWidth/2 * scl;
     const sh2 = S.screenHeight/2 * scl;
+    const tw2 = S.targetWidth/2  * scl;
+    const th2 = S.targetHeight/2 * scl;
 
-    // Projection rectangle
-    ctx.fillStyle = 'rgba(0,229,255,0.12)';
-    ctx.fillRect(cx-sw2, cy-sh2, sw2*2, sh2*2);
-    ctx.strokeStyle = 'rgba(0,229,255,0.7)'; ctx.lineWidth=2;
-    ctx.strokeRect(cx-sw2, cy-sh2, sw2*2, sh2*2);
+    // Coverage overlay
+    drawCoverageOverlay(c,
+      { x: cx-sw2, y: cy-sh2, w: sw2*2, h: sh2*2 },
+      { x: cx-tw2, y: cy-th2, w: tw2*2, h: th2*2 }
+    );
 
-    // Centre crosshair (projector position above)
-    ctx.strokeStyle='rgba(0,229,255,0.3)'; ctx.lineWidth=1; ctx.setLineDash([6,6]);
-    ctx.beginPath(); ctx.moveTo(cx,cy-sh2-30); ctx.lineTo(cx,cy+sh2+30); ctx.stroke();
-    ctx.beginPath(); ctx.moveTo(cx-sw2-30,cy); ctx.lineTo(cx+sw2+30,cy); ctx.stroke();
-    ctx.setLineDash([]);
+    c.fillStyle = 'rgba(0,229,255,0.12)';
+    c.fillRect(cx-sw2, cy-sh2, sw2*2, sh2*2);
+    c.strokeStyle = 'rgba(0,229,255,0.7)'; c.lineWidth=2;
+    c.strokeRect(cx-sw2, cy-sh2, sw2*2, sh2*2);
 
-    // Projector dot above
-    ctx.fillStyle='rgba(0,229,255,0.7)';
-    ctx.beginPath(); ctx.arc(cx,cy,8,0,Math.PI*2); ctx.fill();
-    ctx.strokeStyle='rgba(0,229,255,1)'; ctx.lineWidth=1.5; ctx.stroke();
+    c.strokeStyle='rgba(0,229,255,0.3)'; c.lineWidth=1; c.setLineDash([6,6]);
+    c.beginPath(); c.moveTo(cx,cy-sh2-30); c.lineTo(cx,cy+sh2+30); c.stroke();
+    c.beginPath(); c.moveTo(cx-sw2-30,cy); c.lineTo(cx+sw2+30,cy); c.stroke();
+    c.setLineDash([]);
 
-    dimLineH(cx-sw2, cx+sw2, cy+sh2+40, fd(S.screenWidth), '#00e5ff', false);
-    dimLineV(cy-sh2, cy+sh2, cx+sw2+35, fd(S.screenHeight));
+    c.fillStyle='rgba(0,229,255,0.7)';
+    c.beginPath(); c.arc(cx,cy,8,0,Math.PI*2); c.fill();
+    c.strokeStyle='rgba(0,229,255,1)'; c.lineWidth=1.5; c.stroke();
 
-    ctx.font='10px "Share Tech Mono"'; ctx.fillStyle='rgba(0,229,255,0.5)';
-    ctx.fillText('PLAN VIEW — CEILING DOWN (PROJECTOR = DOT)', 10, 18);
+    dimLineH(c, cx-sw2, cx+sw2, cy+Math.max(sh2,th2)+40, fd(S.screenWidth), '#00e5ff', false);
+    dimLineV(c, cy-sh2, cy+sh2, cx+Math.max(sw2,tw2)+35, fd(S.screenHeight));
+
+    c.font='10px "Share Tech Mono"'; c.fillStyle='rgba(0,229,255,0.5)';
+    c.fillText('PLAN VIEW — CEILING DOWN (PROJECTOR = DOT)', 10, 18);
     return;
   }
 
-  // Horizontal modes: projector left, screen right
-  const scl = Math.min(availW / (S.throwDistMax * 1.3), availH / (S.screenWidth * 3));
+  const allW = S.throwDistMax * 1.3;
+  const allH = Math.max(S.screenWidth, S.targetWidth) * 3;
+  const scl = Math.min(availW / allW, availH / allH);
 
-  const projX = PAD;
-  const projY = H / 2;
+  const projX = PAD, projY = H / 2;
   const screenX = projX + S.throwDistMax * scl;
   const sw2 = S.screenWidth / 2 * scl;
+  const tw2 = S.targetWidth  / 2 * scl;
 
-  // Beam fill (top-down shows width as the spread)
-  ctx.beginPath();
-  ctx.moveTo(projX, projY);
-  ctx.lineTo(screenX, projY - sw2);
-  ctx.lineTo(screenX, projY + sw2);
-  ctx.closePath();
-  ctx.fillStyle = beamFill(projX, projY, screenX, projY, 0.4, 0.13, 0.04);
-  ctx.fill();
+  // Coverage overlay in top view (width comparison)
+  drawCoverageOverlay(c,
+    { x: screenX, y: projY - sw2, w: 8, h: sw2*2 },
+    { x: screenX - 4, y: projY - tw2, w: 16, h: tw2*2 }
+  );
 
-  // Beam edges
-  ctx.strokeStyle='rgba(0,229,255,0.7)'; ctx.lineWidth=1.5; ctx.setLineDash([]);
-  ctx.beginPath(); ctx.moveTo(projX,projY); ctx.lineTo(screenX,projY-sw2); ctx.stroke();
-  ctx.beginPath(); ctx.moveTo(projX,projY); ctx.lineTo(screenX,projY+sw2); ctx.stroke();
+  // Beam fill
+  c.beginPath(); c.moveTo(projX, projY); c.lineTo(screenX, projY - sw2); c.lineTo(screenX, projY + sw2); c.closePath();
+  c.fillStyle = beamFill(c, projX, projY, screenX, projY, 0.4, 0.13, 0.04); c.fill();
 
-  // Centre axis
-  ctx.strokeStyle='rgba(0,229,255,0.12)'; ctx.lineWidth=1; ctx.setLineDash([8,8]);
-  ctx.beginPath(); ctx.moveTo(projX,projY); ctx.lineTo(screenX+20,projY); ctx.stroke();
-  ctx.setLineDash([]);
+  c.strokeStyle='rgba(0,229,255,0.7)'; c.lineWidth=1.5; c.setLineDash([]);
+  c.beginPath(); c.moveTo(projX,projY); c.lineTo(screenX,projY-sw2); c.stroke();
+  c.beginPath(); c.moveTo(projX,projY); c.lineTo(screenX,projY+sw2); c.stroke();
 
-  // Min throw
-  const minX = projX + S.throwDistMin * scl;
+  c.strokeStyle='rgba(0,229,255,0.12)'; c.lineWidth=1; c.setLineDash([8,8]);
+  c.beginPath(); c.moveTo(projX,projY); c.lineTo(screenX+20,projY); c.stroke();
+  c.setLineDash([]);
+
+  const minX  = projX + S.throwDistMin * scl;
   const minHW = sw2 * S.throwDistMin / S.throwDistMax;
-  ctx.strokeStyle='rgba(255,107,0,0.9)'; ctx.lineWidth=2; ctx.setLineDash([5,4]);
-  ctx.beginPath(); ctx.moveTo(minX,projY-minHW); ctx.lineTo(minX,projY+minHW); ctx.stroke();
-  ctx.setLineDash([]);
-  ctx.font='9px "Share Tech Mono"'; ctx.fillStyle='rgba(255,107,0,0.8)'; ctx.textAlign='center';
-  ctx.fillText('MIN', minX, projY-minHW-5);
-  ctx.textAlign='left';
+  c.strokeStyle='rgba(255,107,0,0.9)'; c.lineWidth=2; c.setLineDash([5,4]);
+  c.beginPath(); c.moveTo(minX,projY-minHW); c.lineTo(minX,projY+minHW); c.stroke();
+  c.setLineDash([]);
+  c.font='9px "Share Tech Mono"'; c.fillStyle='rgba(255,107,0,0.8)'; c.textAlign='center';
+  c.fillText('MIN', minX, projY-minHW-5); c.textAlign='left';
 
-  // Screen
-  ctx.fillStyle='rgba(200,212,224,0.1)';
-  ctx.fillRect(screenX, projY-sw2, 8, sw2*2);
-  ctx.strokeStyle='rgba(200,212,224,0.85)'; ctx.lineWidth=2.5;
-  ctx.beginPath(); ctx.moveTo(screenX,projY-sw2); ctx.lineTo(screenX,projY+sw2); ctx.stroke();
+  c.fillStyle='rgba(200,212,224,0.1)';
+  c.fillRect(screenX, projY-sw2, 8, sw2*2);
+  c.strokeStyle='rgba(200,212,224,0.85)'; c.lineWidth=2.5;
+  c.beginPath(); c.moveTo(screenX,projY-sw2); c.lineTo(screenX,projY+sw2); c.stroke();
 
-  // Spread angle
   const halfAngle = Math.atan2(sw2, S.throwDistMax * scl) * 180 / Math.PI;
-  ctx.font='10px "Share Tech Mono"'; ctx.fillStyle='rgba(0,229,255,0.55)';
-  ctx.fillText('∠ '+halfAngle.toFixed(1)+'° half-angle', projX+10, projY-sw2-8);
+  c.font='10px "Share Tech Mono"'; c.fillStyle='rgba(0,229,255,0.55)';
+  c.fillText('∠ '+halfAngle.toFixed(1)+'° half-angle', projX+10, projY-sw2-8);
 
-  // Projector top view (rectangle)
-  ctx.fillStyle='#1a2230'; ctx.strokeStyle='rgba(0,229,255,0.55)'; ctx.lineWidth=1.5;
-  ctx.fillRect(projX-24, projY-10, 24, 20); ctx.strokeRect(projX-24, projY-10, 24, 20);
-  ctx.beginPath(); ctx.arc(projX-4, projY, 5, 0, Math.PI*2);
-  ctx.fillStyle='rgba(0,229,255,0.4)'; ctx.fill();
+  c.fillStyle='#1a2230'; c.strokeStyle='rgba(0,229,255,0.55)'; c.lineWidth=1.5;
+  c.fillRect(projX-24, projY-10, 24, 20); c.strokeRect(projX-24, projY-10, 24, 20);
+  c.beginPath(); c.arc(projX-4, projY, 5, 0, Math.PI*2);
+  c.fillStyle='rgba(0,229,255,0.4)'; c.fill();
 
-  // Dimension lines
-  dimLineH(projX, screenX, projY+sw2+45, fd(S.throwDistMax), '#00e5ff', false);
-  dimLineH(projX, minX, projY+sw2+25, fd(S.throwDistMin), '#ff6b00', true);
-  dimLineV(projY-sw2, projY+sw2, screenX+30, fd(S.screenWidth));
+  dimLineH(c, projX, screenX, projY+sw2+45, fd(S.throwDistMax), '#00e5ff', false);
+  dimLineH(c, projX, minX, projY+sw2+25, fd(S.throwDistMin), '#ff6b00', true);
+  dimLineV(c, projY-sw2, projY+sw2, screenX+30, fd(S.screenWidth));
 
-  ctx.font='10px "Share Tech Mono"'; ctx.fillStyle='rgba(0,229,255,0.5)';
-  ctx.fillText('PLAN VIEW (TOP DOWN) — '+(S.mountMode==='ceiling'?'CEILING INVERTED':'FLOOR / TABLE'), 10, 18);
+  c.font='10px "Share Tech Mono"'; c.fillStyle='rgba(0,229,255,0.5)';
+  c.fillText('PLAN VIEW (TOP DOWN) — '+(S.mountMode==='ceiling'?'CEILING INVERTED':'FLOOR / TABLE'), 10, 18);
 }
 
 // ─── 3D PERSPECTIVE VIEW ─────────────────────────────────────
-function drawPerspView(angleDeg) {
-  ctx.clearRect(0,0,W,H);
+function drawPerspView(angleDeg, c, W, H) {
+  c.clearRect(0,0,W,H);
   const angle = angleDeg * Math.PI / 180;
   const cosA = Math.cos(angle), sinA = Math.sin(angle);
   const tilt = 0.28;
@@ -995,54 +1327,80 @@ function drawPerspView(angleDeg) {
   const td  = S.throwDistMax;
   const sw2 = S.screenWidth/2;
   const sh2 = S.screenHeight/2;
+  const tw2 = S.targetWidth/2;
+  const th2 = S.targetHeight/2;
   const mode = S.mountMode;
 
-  let proj, c; // projector point, screen corners
+  let proj, scrCorners, tgtCorners;
 
   if (mode === 'down') {
     proj = p3(0, S.mountHeight/2, 0);
-    c = [p3(-sw2,0, td/2), p3(sw2,0, td/2), p3(sw2,0,-td/2), p3(-sw2,0,-td/2)];
+    scrCorners = [p3(-sw2,0, td/2), p3(sw2,0, td/2), p3(sw2,0,-td/2), p3(-sw2,0,-td/2)];
+    tgtCorners = [p3(-tw2,0, td/2), p3(tw2,0, td/2), p3(tw2,0,-td/2), p3(-tw2,0,-td/2)];
   } else {
     proj = p3(-td-0.2, 0, 0);
-    c = [p3(0, sh2, -sw2), p3(0,-sh2,-sw2), p3(0,-sh2,sw2), p3(0,sh2,sw2)];
+    scrCorners = [p3(0, sh2, -sw2), p3(0,-sh2,-sw2), p3(0,-sh2,sw2), p3(0,sh2,sw2)];
+    tgtCorners = [p3(0, th2, -tw2), p3(0,-th2,-tw2), p3(0,-th2,tw2), p3(0,th2,tw2)];
+  }
+
+  // Target screen outline in 3D (dashed green)
+  if (S.overlayOn) {
+    c.save();
+    c.strokeStyle = 'rgba(127,255,0,0.7)'; c.lineWidth = 1.5; c.setLineDash([5,4]);
+    c.beginPath();
+    tgtCorners.forEach((pt,i) => i===0 ? c.moveTo(pt[0],pt[1]) : c.lineTo(pt[0],pt[1]));
+    c.closePath(); c.stroke();
+    c.setLineDash([]);
+    // Fill target with semi-transparent overlay
+    const fullyCovers = S.screenWidth >= S.targetWidth - 0.001 && S.screenHeight >= S.targetHeight - 0.001;
+    c.beginPath();
+    tgtCorners.forEach((pt,i) => i===0 ? c.moveTo(pt[0],pt[1]) : c.lineTo(pt[0],pt[1]));
+    c.closePath();
+    c.fillStyle = fullyCovers ? 'rgba(0,200,90,0.12)' : 'rgba(220,40,40,0.15)';
+    c.fill();
+    c.restore();
   }
 
   // Beam faces
-  const faces = [[c[0],c[1]],[c[1],c[2]],[c[2],c[3]],[c[3],c[0]]];
+  const faces = [[scrCorners[0],scrCorners[1]],[scrCorners[1],scrCorners[2]],[scrCorners[2],scrCorners[3]],[scrCorners[3],scrCorners[0]]];
   const alphas = [0.12,0.07,0.10,0.07];
   faces.forEach(([a,b],i) => {
-    ctx.beginPath(); ctx.moveTo(proj[0],proj[1]); ctx.lineTo(a[0],a[1]); ctx.lineTo(b[0],b[1]); ctx.closePath();
-    ctx.fillStyle=`rgba(0,229,255,${alphas[i]})`; ctx.fill();
-    ctx.strokeStyle='rgba(0,229,255,0.35)'; ctx.lineWidth=1; ctx.stroke();
+    c.beginPath(); c.moveTo(proj[0],proj[1]); c.lineTo(a[0],a[1]); c.lineTo(b[0],b[1]); c.closePath();
+    c.fillStyle=`rgba(0,229,255,${alphas[i]})`; c.fill();
+    c.strokeStyle='rgba(0,229,255,0.35)'; c.lineWidth=1; c.stroke();
   });
 
   // Screen face
-  ctx.beginPath();
-  c.forEach((pt,i) => i===0 ? ctx.moveTo(pt[0],pt[1]) : ctx.lineTo(pt[0],pt[1]));
-  ctx.closePath();
-  ctx.fillStyle='rgba(200,212,224,0.1)'; ctx.fill();
-  ctx.strokeStyle='rgba(200,212,224,0.7)'; ctx.lineWidth=2; ctx.stroke();
+  c.beginPath();
+  scrCorners.forEach((pt,i) => i===0 ? c.moveTo(pt[0],pt[1]) : c.lineTo(pt[0],pt[1]));
+  c.closePath();
+  c.fillStyle='rgba(200,212,224,0.1)'; c.fill();
+  c.strokeStyle='rgba(200,212,224,0.7)'; c.lineWidth=2; c.stroke();
 
   // Projector body
   const pw=30, ph=18;
-  ctx.fillStyle='#1a2230'; ctx.strokeStyle='rgba(0,229,255,0.6)'; ctx.lineWidth=1.5;
-  ctx.fillRect(proj[0]-pw/2,proj[1]-ph/2,pw,ph);
-  ctx.strokeRect(proj[0]-pw/2,proj[1]-ph/2,pw,ph);
-  ctx.beginPath(); ctx.arc(proj[0]+pw/2-5,proj[1],5,0,Math.PI*2);
-  ctx.fillStyle='rgba(0,229,255,0.4)'; ctx.fill();
-  ctx.strokeStyle='rgba(0,229,255,0.9)'; ctx.lineWidth=1.5; ctx.stroke();
+  c.fillStyle='#1a2230'; c.strokeStyle='rgba(0,229,255,0.6)'; c.lineWidth=1.5;
+  c.fillRect(proj[0]-pw/2,proj[1]-ph/2,pw,ph);
+  c.strokeRect(proj[0]-pw/2,proj[1]-ph/2,pw,ph);
+  c.beginPath(); c.arc(proj[0]+pw/2-5,proj[1],5,0,Math.PI*2);
+  c.fillStyle='rgba(0,229,255,0.4)'; c.fill();
+  c.strokeStyle='rgba(0,229,255,0.9)'; c.lineWidth=1.5; c.stroke();
 
-  ctx.font='10px "Share Tech Mono"'; ctx.fillStyle='rgba(0,229,255,0.5)'; ctx.textAlign='center';
-  ctx.fillText('3D PERSPECTIVE — '+{floor:'FLOOR',ceiling:'CEILING INV.',down:'DOWN'}[mode], W/2, 18);
-  ctx.fillStyle='rgba(200,212,224,0.35)';
-  ctx.fillText('⟳ AUTO-ROTATING', W/2, H-18);
-  ctx.textAlign='left';
-  ctx.font='9px "Share Tech Mono"'; ctx.fillStyle='rgba(0,229,255,0.3)';
-  ctx.fillText('THROW: '+fd(S.throwDistMin)+' – '+fd(S.throwDistMax), 10, H-30);
-  ctx.fillText('SCREEN: '+fd(S.screenWidth)+' × '+fd(S.screenHeight), 10, H-17);
+  c.font='10px "Share Tech Mono"'; c.fillStyle='rgba(0,229,255,0.5)'; c.textAlign='center';
+  c.fillText('3D PERSPECTIVE — '+{floor:'FLOOR',ceiling:'CEILING INV.',down:'DOWN'}[mode], W/2, 18);
+  c.fillStyle='rgba(200,212,224,0.35)';
+  c.fillText('⟳ AUTO-ROTATING', W/2, H-18);
+  c.textAlign='left';
+  c.font='9px "Share Tech Mono"'; c.fillStyle='rgba(0,229,255,0.3)';
+  c.fillText('THROW: '+fd(S.throwDistMin)+' – '+fd(S.throwDistMax), 10, H-30);
+  c.fillText('SCREEN: '+fd(S.screenWidth)+' × '+fd(S.screenHeight), 10, H-17);
+  if (S.overlayOn) {
+    c.fillStyle='rgba(127,255,0,0.5)';
+    c.fillText('TARGET: '+fd(S.targetWidth)+' × '+fd(S.targetHeight), 10, H-5);
+  }
 }
 
-// ─── 3D ANIMATION ────────────────────────────────────────────
+// ─── 3D ANIMATION (single view) ──────────────────────────────
 function start3DAnimation() {
   S.animating = true;
   let t = 0;
@@ -1051,7 +1409,7 @@ function start3DAnimation() {
     t += 0.006;
     S.angle3d = 25 + Math.sin(t) * 28;
     ctx.clearRect(0,0,W,H);
-    drawPerspView(S.angle3d);
+    drawPerspView(S.angle3d, ctx, W, H);
     requestAnimationFrame(frame);
   })();
 }
@@ -1150,6 +1508,14 @@ document.getElementById('dbSearch').addEventListener('keydown', e => { if (e.key
 document.addEventListener('click', e => {
   if (!e.target.closest('.search-wrap') && !e.target.closest('.db-results'))
     document.getElementById('dbResults').classList.remove('open');
+});
+// Sync target height when target width changes (if locked to AR)
+document.getElementById('targetWidth').addEventListener('input', () => {
+  if (S.targetLocked && S.aspect > 0) {
+    const tw = toMetres(parseFloat(document.getElementById('targetWidth').value)||3);
+    const th = tw / S.aspect;
+    document.getElementById('targetHeight').value = +fromMetres(th).toFixed(S.unit==='m'?2:1);
+  }
 });
 updatePresetChips();
 resizeCanvas();
