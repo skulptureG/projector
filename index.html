@@ -154,16 +154,36 @@
 
   .canvas-wrap {
     position:relative; background:var(--bg); overflow:hidden;
-    display:flex; align-items:center; justify-content:center;
   }
   .canvas-wrap::before {
     content:''; position:absolute; inset:0;
     background-image:linear-gradient(var(--grid) 1px,transparent 1px),linear-gradient(90deg,var(--grid) 1px,transparent 1px);
-    background-size:40px 40px; pointer-events:none;
+    background-size:40px 40px; pointer-events:none; z-index:0;
   }
   canvas { display:block; }
 
-  .info-bar {
+  /* Split view — fills canvas-wrap absolutely */
+  .split-wrap {
+    position:absolute; inset:0;
+    display:grid;
+    grid-template-columns: 1fr 1fr;
+    grid-template-rows: 1fr;
+  }
+  .split-pane {
+    position:relative; overflow:hidden; min-width:0; min-height:0;
+    border-right:1px solid var(--border);
+  }
+  .split-pane:last-child { border-right:none; }
+  /* Canvas fills its pane via absolute positioning */
+  .split-pane canvas {
+    position:absolute; inset:0; width:100% !important; height:100% !important; display:block;
+  }
+  .split-label {
+    position:absolute; top:8px; left:10px; z-index:5;
+    font-family:'Share Tech Mono',monospace; font-size:9px;
+    color:var(--accent3); letter-spacing:0.15em; opacity:0.75;
+    pointer-events:none;
+  }
     background:var(--surface); border-top:1px solid var(--border);
     padding:9px 20px; display:flex; align-items:center; gap:24px;
     font-family:'Share Tech Mono',monospace; font-size:11px; color:var(--text-dim);
@@ -204,7 +224,7 @@
     pointer-events:none;
   }
 
-  /* Coverage legend */
+  .info-bar {
   .legend {
     position:absolute; bottom:14px; right:14px;
     display:flex; flex-direction:column; gap:5px; z-index:10;
@@ -311,7 +331,7 @@
 
 <header>
   <div class="logo">Throw<span>CAD</span> — Projector Visualiser</div>
-  <div class="header-badge">v2.5 // LENS OFFSET</div>
+  <div class="header-badge">v2.6 // SPLIT VIEW FIXED</div>
 </header>
 
 <div class="layout">
@@ -603,10 +623,10 @@
       <button class="view-tab" onclick="setView('top')" id="tab-top">TOP</button>
       <button class="view-tab" onclick="setView('3d')" id="tab-3d">3D</button>
     </div>
-    <!-- Single view canvas -->
-    <canvas id="mainCanvas" style="display:block;width:100%;height:100%;"></canvas>
-    <!-- Split view container (hidden initially) -->
-    <div class="split-wrap" id="splitWrap" style="display:none;position:absolute;inset:0;">
+    <!-- Single view canvas — absolutely fills wrap -->
+    <canvas id="mainCanvas" style="position:absolute;inset:0;width:100%;height:100%;"></canvas>
+    <!-- Split view container — grid of panes, hidden initially -->
+    <div class="split-wrap" id="splitWrap" style="display:none;">
       <div class="split-pane" id="pane0">
         <canvas id="canvas0"></canvas>
         <div class="split-label" id="label0">SIDE</div>
@@ -693,7 +713,6 @@ function fd(v) { return fmtDist(v); }
 
 const canvas = document.getElementById('mainCanvas');
 const ctx = canvas.getContext('2d');
-// Split-view canvases
 const canvases = [
   document.getElementById('canvas0'),
   document.getElementById('canvas1'),
@@ -703,7 +722,20 @@ const ctxs = canvases.map(c => c.getContext('2d'));
 let W = 0, H = 0;
 
 // ─── RESIZE ──────────────────────────────────────────────────
-function resizeCanvas() {
+// Uses a ResizeObserver so we always get accurate post-layout sizes
+const _ro = new ResizeObserver(() => { _scheduleResize(); });
+_ro.observe(document.getElementById('canvasWrap'));
+
+let _resizeRaf = null;
+function _scheduleResize() {
+  if (_resizeRaf) cancelAnimationFrame(_resizeRaf);
+  _resizeRaf = requestAnimationFrame(() => {
+    _resizeRaf = null;
+    _doResize();
+  });
+}
+
+function _doResize() {
   const wrap = document.getElementById('canvasWrap');
   W = wrap.clientWidth;
   H = wrap.clientHeight;
@@ -711,24 +743,30 @@ function resizeCanvas() {
   if (S.splitMode === 'single') {
     canvas.width  = W;
     canvas.height = H;
-    S.throwDistMax > 0 ? drawAll() : drawEmpty();
   } else {
-    resizeSplitCanvases();
-    S.throwDistMax > 0 ? drawAll() : drawEmpty();
+    _resizeSplitPanes();
   }
+  S.throwDistMax > 0 ? drawAll() : drawEmpty();
 }
-window.addEventListener('resize', resizeCanvas);
 
-function resizeSplitCanvases() {
-  const panes = ['pane0','pane1','pane2'];
-  panes.forEach((id, i) => {
-    const pane = document.getElementById(id);
-    if (pane.style.display === 'none') return;
-    const w = pane.clientWidth, h = pane.clientHeight;
-    canvases[i].width  = w;
-    canvases[i].height = h;
+function _resizeSplitPanes() {
+  // Force layout read AFTER grid has settled
+  const cfg = SPLIT_CONFIGS[S.splitMode];
+  cfg.views.forEach((v, i) => {
+    const pane = document.getElementById('pane' + i);
+    if (!pane || pane.style.display === 'none') return;
+    const w = pane.clientWidth;
+    const h = pane.clientHeight;
+    if (w > 0 && h > 0) {
+      canvases[i].width  = w;
+      canvases[i].height = h;
+    }
   });
 }
+
+// Legacy alias for any code that calls resizeCanvas()
+function resizeCanvas() { _scheduleResize(); }
+window.addEventListener('resize', () => _scheduleResize());
 
 // ─── UNIT SYSTEM ─────────────────────────────────────────────
 function setUnit(unit) {
@@ -1000,79 +1038,163 @@ function readTargetInputs() {
   }
 }
 
-// ─── SPLIT VIEW ───────────────────────────────────────────────
+// ─── SPLIT VIEW ──────────────────────────────────────────────
 const SPLIT_CONFIGS = {
-  'single':   { views: ['side'], vert: false },
-  'side-top': { views: ['side','top'], vert: false },
-  'side-3d':  { views: ['side','3d'],  vert: false },
-  'top-3d':   { views: ['top','3d'],   vert: false },
-  'all3':     { views: ['side','top','3d'], vert: false }
+  'single':   { views: ['side'] },
+  'side-top': { views: ['side', 'top'] },
+  'side-3d':  { views: ['side', '3d'] },
+  'top-3d':   { views: ['top',  '3d'] },
+  'all3':     { views: ['side', 'top', '3d'] }
 };
 
 function setSplitView(mode) {
   S.animating = false;
   S.splitMode = mode;
 
-  // Update split buttons
+  // Update sidebar buttons
   document.querySelectorAll('.split-btn').forEach(b =>
-    b.classList.toggle('active', b.id === 'sv-'+mode));
+    b.classList.toggle('active', b.id === 'sv-' + mode));
 
-  const single = mode === 'single';
-  document.getElementById('mainCanvas').style.display = single ? 'block' : 'none';
-  document.getElementById('splitWrap').style.display  = single ? 'none' : 'block';
+  const isSingle = mode === 'single';
 
-  // In split mode, hide the single-view tabs (they still work as layout hints)
-  // Show/hide view tabs only in single mode
-  document.getElementById('tab-side').style.opacity = single ? '' : '0.4';
-  document.getElementById('tab-top').style.opacity  = single ? '' : '0.4';
-  document.getElementById('tab-3d').style.opacity   = single ? '' : '0.4';
+  // Show/hide the two canvas layers
+  canvas.style.display        = isSingle ? 'block' : 'none';
+  document.getElementById('splitWrap').style.display = isSingle ? 'none' : 'grid';
 
-  if (!single) {
-    const cfg = SPLIT_CONFIGS[mode];
-    const views = cfg.views;
-    const wrap = document.getElementById('splitWrap');
-    wrap.className = 'split-wrap';
+  // Dim the single-view tabs when in split mode
+  ['side','top','3d'].forEach(t =>
+    document.getElementById('tab-' + t).style.opacity = isSingle ? '' : '0.4');
 
-    // Configure grid
-    if (mode === 'all3') {
-      wrap.style.gridTemplateColumns = '1fr 1fr';
-      wrap.style.gridTemplateRows = '1fr 1fr';
-    } else {
-      wrap.style.gridTemplateColumns = '1fr 1fr';
-      wrap.style.gridTemplateRows = '1fr';
-    }
+  if (!isSingle) {
+    const views = SPLIT_CONFIGS[mode].views;
+    const wrap  = document.getElementById('splitWrap');
+
+    // Always horizontal layout: all panes side-by-side
+    wrap.style.gridTemplateColumns = views.map(() => '1fr').join(' ');
+    wrap.style.gridTemplateRows    = '1fr';
 
     // Show/hide panes and label them
-    [0,1,2].forEach(i => {
-      const pane = document.getElementById('pane'+i);
-      const lbl  = document.getElementById('label'+i);
+    [0, 1, 2].forEach(i => {
+      const pane = document.getElementById('pane' + i);
+      const lbl  = document.getElementById('label' + i);
       if (i < views.length) {
-        pane.style.display = '';
-        lbl.textContent = views[i].toUpperCase();
-        if (mode === 'all3' && i === 2) {
-          // 3rd pane spans bottom in all3
-          pane.style.gridColumn = '1 / -1';
-        } else {
-          pane.style.gridColumn = '';
-        }
+        pane.style.display  = 'block';
+        lbl.textContent     = views[i].toUpperCase();
+        pane.style.gridColumn = '';
+        pane.style.borderRight = i < views.length - 1 ? '1px solid var(--border)' : 'none';
       } else {
         pane.style.display = 'none';
       }
     });
   }
 
-  resizeCanvas();
-  S.throwDistMax > 0 ? drawAll() : drawEmpty();
+  // Defer resize + draw until after DOM layout settles
+  requestAnimationFrame(() => {
+    requestAnimationFrame(() => {
+      _doResize();
+    });
+  });
 }
 
-// ─── PRESETS ─────────────────────────────────────────────────
-function setPreset(w_m, el) {
-  document.getElementById('screenWidth').value = +fromMetres(w_m, S.unit).toFixed(S.unit==='m'?1:0);
-  document.querySelectorAll('.chip').forEach(c => c.classList.remove('active'));
-  el.classList.add('active');
+// ─── DRAW ROUTER ─────────────────────────────────────────────
+function drawAll() {
+  if (S.splitMode === 'single') {
+    ctx.clearRect(0, 0, W, H);
+    if      (S.currentView === 'side') drawSideView(ctx, W, H);
+    else if (S.currentView === 'top')  drawTopView(ctx, W, H);
+    else                                drawPerspView(S.angle3d, ctx, W, H);
+  } else {
+    _drawSplitPanes();
+  }
 }
 
-// ─── CALCULATE ───────────────────────────────────────────────
+function drawEmpty() {
+  function _emptyPane(c, w, h) {
+    if (w <= 0 || h <= 0) return;
+    c.clearRect(0, 0, w, h);
+    c.font = '10px "Share Tech Mono"';
+    c.fillStyle = 'rgba(0,229,255,0.3)';
+    c.textAlign = 'center';
+    c.fillText('ENTER VALUES AND PRESS CALCULATE', w/2, h/2);
+    c.fillStyle = 'rgba(90,106,122,0.4)';
+    c.font = '9px "Share Tech Mono"';
+    c.fillText('Projection beam will render here', w/2, h/2 + 16);
+    c.textAlign = 'left';
+    c.save(); c.globalAlpha = 0.18;
+    c.strokeStyle = 'rgba(0,229,255,0.6)'; c.lineWidth = 1.5;
+    c.strokeRect(w/2 - 25, h/2 - 50, 50, 25);
+    c.beginPath(); c.arc(w/2 + 19, h/2 - 37, 6, 0, Math.PI * 2); c.stroke();
+    c.restore();
+  }
+
+  if (S.splitMode === 'single') {
+    _emptyPane(ctx, W, H);
+  } else {
+    const views = SPLIT_CONFIGS[S.splitMode].views;
+    views.forEach((v, i) => {
+      const c = canvases[i];
+      _emptyPane(ctxs[i], c.width, c.height);
+    });
+  }
+}
+
+function _drawSplitPanes() {
+  // Re-measure each pane right before drawing to handle any pending resize
+  _resizeSplitPanes();
+
+  const views = SPLIT_CONFIGS[S.splitMode].views;
+  let needs3dAnim = false;
+
+  views.forEach((view, i) => {
+    const c  = canvases[i];
+    const cx = ctxs[i];
+    const w  = c.width;
+    const h  = c.height;
+    if (w <= 0 || h <= 0) return;
+
+    cx.clearRect(0, 0, w, h);
+    if      (view === 'side') drawSideView(cx, w, h);
+    else if (view === 'top')  drawTopView(cx, w, h);
+    else if (view === '3d')   { drawPerspView(S.angle3d, cx, w, h); needs3dAnim = true; }
+  });
+
+  if (needs3dAnim && !S.animating) _startSplitAnim();
+}
+
+// ─── ANIMATIONS ──────────────────────────────────────────────
+let _animT = 0;
+
+function start3DAnimation() {
+  S.animating = true;
+  _animT = 0;
+  (function frame() {
+    if (!S.animating || S.splitMode !== 'single') return;
+    _animT += 0.006;
+    S.angle3d = 25 + Math.sin(_animT) * 28;
+    ctx.clearRect(0, 0, W, H);
+    drawPerspView(S.angle3d, ctx, W, H);
+    requestAnimationFrame(frame);
+  })();
+}
+
+function _startSplitAnim() {
+  S.animating = true;
+  (function frame() {
+    if (!S.animating || S.splitMode === 'single') return;
+    _animT += 0.006;
+    S.angle3d = 25 + Math.sin(_animT) * 28;
+
+    const views = SPLIT_CONFIGS[S.splitMode].views;
+    views.forEach((view, i) => {
+      if (view !== '3d') return;
+      const c = canvases[i], cx = ctxs[i];
+      if (c.width <= 0 || c.height <= 0) return;
+      cx.clearRect(0, 0, c.width, c.height);
+      drawPerspView(S.angle3d, cx, c.width, c.height);
+    });
+    requestAnimationFrame(frame);
+  })();
+}
 function calculate() {
   const tMin = parseFloat(document.getElementById('throwMin').value);
   const tMax = parseFloat(document.getElementById('throwMax').value);
@@ -1173,87 +1295,13 @@ function calculate() {
   document.getElementById('ib-lm').textContent    = lm.toLocaleString()+' lm';
   document.getElementById('ib-lux').textContent   = Math.round(lux)+' lux';
 
-  if (S.splitMode === 'single' && S.currentView === '3d') start3DAnimation();
-  else { S.animating = false; drawAll(); }
+  S.animating = false;
+  if (S.splitMode === 'single' && S.currentView === '3d') {
+    start3DAnimation();
+  } else {
+    drawAll();
+  }
   showNotif('Calculations complete ✓');
-}
-
-// ─── DRAW ROUTER ─────────────────────────────────────────────
-function drawAll() {
-  if (S.splitMode === 'single') {
-    ctx.clearRect(0, 0, W, H);
-    if (S.currentView === 'side') drawSideView(ctx, W, H);
-    else if (S.currentView === 'top') drawTopView(ctx, W, H);
-    else drawPerspView(S.angle3d, ctx, W, H);
-  } else {
-    drawSplit();
-  }
-}
-
-function drawEmpty() {
-  function emptyCanvas(c, w, h) {
-    c.clearRect(0, 0, w, h);
-    c.font = '10px "Share Tech Mono"';
-    c.fillStyle = 'rgba(0,229,255,0.3)';
-    c.textAlign = 'center';
-    c.fillText('ENTER VALUES AND PRESS CALCULATE', w/2, h/2);
-    c.fillStyle = 'rgba(90,106,122,0.4)';
-    c.font = '9px "Share Tech Mono"';
-    c.fillText('Projection beam will render here', w/2, h/2+16);
-    c.textAlign = 'left';
-    c.save(); c.globalAlpha = 0.18;
-    c.strokeStyle = 'rgba(0,229,255,0.6)'; c.lineWidth = 1.5;
-    c.strokeRect(w/2-25, h/2-50, 50, 25);
-    c.beginPath(); c.arc(w/2+19, h/2-37, 6, 0, Math.PI*2); c.stroke();
-    c.restore();
-  }
-  if (S.splitMode === 'single') {
-    emptyCanvas(ctx, W, H);
-  } else {
-    resizeSplitCanvases();
-    const cfg = SPLIT_CONFIGS[S.splitMode];
-    cfg.views.forEach((v, i) => {
-      const c = canvases[i], cx = ctxs[i];
-      emptyCanvas(cx, c.width, c.height);
-    });
-  }
-}
-
-function drawSplit() {
-  resizeSplitCanvases();
-  const cfg = SPLIT_CONFIGS[S.splitMode];
-  cfg.views.forEach((v, i) => {
-    const c = canvases[i];
-    const cx = ctxs[i];
-    const w = c.width, h = c.height;
-    cx.clearRect(0, 0, w, h);
-    if (v === 'side') drawSideView(cx, w, h);
-    else if (v === 'top') drawTopView(cx, w, h);
-    else if (v === '3d') {
-      drawPerspView(S.angle3d, cx, w, h);
-      // If 3D in split, start animation
-      if (!S.animating) startSplitAnimation();
-    }
-  });
-}
-
-let _splitAnimT = 0;
-function startSplitAnimation() {
-  S.animating = true;
-  (function frame() {
-    if (!S.animating) return;
-    _splitAnimT += 0.006;
-    S.angle3d = 25 + Math.sin(_splitAnimT) * 28;
-    const cfg = SPLIT_CONFIGS[S.splitMode];
-    cfg.views.forEach((v, i) => {
-      if (v === '3d') {
-        const c = canvases[i], cx = ctxs[i];
-        cx.clearRect(0, 0, c.width, c.height);
-        drawPerspView(S.angle3d, cx, c.width, c.height);
-      }
-    });
-    requestAnimationFrame(frame);
-  })();
 }
 
 // ─── HELPERS (ctx-aware) ─────────────────────────────────────
@@ -1767,20 +1815,6 @@ function drawPerspView(angleDeg, c, W, H) {
   }
 }
 
-// ─── 3D ANIMATION (single view) ──────────────────────────────
-function start3DAnimation() {
-  S.animating = true;
-  let t = 0;
-  (function frame() {
-    if (!S.animating) return;
-    t += 0.006;
-    S.angle3d = 25 + Math.sin(t) * 28;
-    ctx.clearRect(0,0,W,H);
-    drawPerspView(S.angle3d, ctx, W, H);
-    requestAnimationFrame(frame);
-  })();
-}
-
 // ─── NOTIFICATION ────────────────────────────────────────────
 function showNotif(msg, isErr) {
   const el = document.getElementById('notif');
@@ -1887,7 +1921,6 @@ document.addEventListener('click', e => {
   if (!e.target.closest('.search-wrap') && !e.target.closest('.db-results'))
     document.getElementById('dbResults').classList.remove('open');
 });
-// Sync target height when target width changes (if locked to AR)
 document.getElementById('targetWidth').addEventListener('input', () => {
   if (S.targetLocked && S.aspect > 0) {
     const tw = toMetres(parseFloat(document.getElementById('targetWidth').value)||3);
@@ -1895,7 +1928,6 @@ document.getElementById('targetWidth').addEventListener('input', () => {
     document.getElementById('targetHeight').value = +fromMetres(th).toFixed(S.unit==='m'?2:1);
   }
 });
-// Offset inputs: live redraw
 ['offsetV','offsetH'].forEach(id => {
   document.getElementById(id).addEventListener('input', () => {
     document.querySelectorAll('.offset-chip').forEach(c => c.classList.remove('active'));
@@ -1906,8 +1938,8 @@ document.getElementById('targetWidth').addEventListener('input', () => {
 updateOffsetUnitLabels();
 updateOffsetDial();
 updatePresetChips();
-resizeCanvas();
-drawEmpty();
+// Initial resize after page fully lays out
+requestAnimationFrame(() => { _doResize(); });
 </script>
 </body>
 </html>
