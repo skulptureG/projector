@@ -233,6 +233,58 @@
   .split-btn:hover { border-color:var(--accent3); color:var(--accent3); }
   .split-btn.active { background:rgba(127,255,0,0.08); border-color:var(--accent3); color:var(--accent3); }
 
+  /* ── Lens offset ── */
+  .offset-grid { display:grid; grid-template-columns:1fr 1fr; gap:8px; }
+  .offset-dial-wrap { display:flex; flex-direction:column; align-items:center; gap:6px; }
+  .offset-dial {
+    position:relative; width:72px; height:72px;
+    border:1px solid var(--border); border-radius:50%;
+    background:radial-gradient(circle at center, #151b24 60%, #0d1118 100%);
+    cursor:pointer; flex-shrink:0;
+  }
+  .offset-dial::before {
+    content:''; position:absolute; inset:5px; border-radius:50%;
+    border:1px solid rgba(0,229,255,0.08);
+  }
+  /* crosshair lines */
+  .offset-dial .cross-h, .offset-dial .cross-v {
+    position:absolute; background:rgba(0,229,255,0.12); pointer-events:none;
+  }
+  .offset-dial .cross-h { top:50%; left:10%; width:80%; height:1px; transform:translateY(-50%); }
+  .offset-dial .cross-v { left:50%; top:10%; height:80%; width:1px; transform:translateX(-50%); }
+  .offset-dot {
+    position:absolute; width:10px; height:10px; border-radius:50%;
+    background:var(--accent); box-shadow:0 0 6px var(--accent);
+    transform:translate(-50%,-50%);
+    transition:left 0.1s, top 0.1s;
+    pointer-events:none;
+  }
+  .offset-dial-label { font-family:'Share Tech Mono',monospace; font-size:9px; color:var(--text-dim); letter-spacing:0.08em; text-transform:uppercase; }
+  .offset-val-row { display:flex; gap:4px; align-items:center; }
+  .offset-val-row input { flex:1; font-size:12px; padding:5px 7px; }
+  .offset-val-row .unit { font-size:9px; }
+
+  /* Preset offset chips */
+  .offset-presets { display:flex; flex-wrap:wrap; gap:4px; margin-top:6px; }
+  .offset-chip {
+    font-family:'Share Tech Mono',monospace; font-size:9px; padding:3px 7px;
+    border:1px solid var(--border); background:var(--bg); color:var(--text-dim);
+    cursor:pointer; transition:all 0.14s; white-space:nowrap;
+  }
+  .offset-chip:hover { border-color:var(--accent2); color:var(--accent2); background:rgba(255,107,0,0.05); }
+  .offset-chip.active { border-color:var(--accent2); color:var(--accent2); background:rgba(255,107,0,0.09); }
+
+  /* Offset mode toggle (% / distance) */
+  .offset-mode-pills { display:flex; gap:0; border:1px solid var(--border); overflow:hidden; margin-bottom:8px; }
+  .offset-mode-pill {
+    flex:1; background:var(--bg); border:none; color:var(--text-dim);
+    font-family:'Share Tech Mono',monospace; font-size:10px;
+    padding:5px 0; cursor:pointer; transition:all 0.14s; text-align:center;
+    border-right:1px solid var(--border);
+  }
+  .offset-mode-pill:last-child { border-right:none; }
+  .offset-mode-pill.active { background:rgba(255,107,0,0.1); color:var(--accent2); }
+
   .axis-hint {
     position:absolute; bottom:14px; left:14px;
     font-family:'Share Tech Mono',monospace; font-size:9px; color:var(--text-dim);
@@ -259,7 +311,7 @@
 
 <header>
   <div class="logo">Throw<span>CAD</span> — Projector Visualiser</div>
-  <div class="header-badge">v2.4 // TARGET + SPLIT VIEW</div>
+  <div class="header-badge">v2.5 // LENS OFFSET</div>
 </header>
 
 <div class="layout">
@@ -308,6 +360,70 @@
           <option value="2.165">Scope 2.165:1</option>
           <option value="1.000">1:1</option>
         </select>
+      </div>
+    </div>
+
+    <div class="section">
+      <div class="section-label">Lens Offset / Shift</div>
+
+      <!-- Mode toggle: % of screen height vs physical distance -->
+      <div class="field">
+        <label>Offset Mode</label>
+        <div class="offset-mode-pills">
+          <button class="offset-mode-pill active" id="offModePercent" onclick="setOffsetMode('pct')">% screen ht</button>
+          <button class="offset-mode-pill" id="offModeDist" onclick="setOffsetMode('dist')">distance</button>
+        </div>
+      </div>
+
+      <!-- Vertical + Horizontal numeric inputs -->
+      <div class="offset-grid">
+        <div class="field" style="margin-bottom:0">
+          <label>Vertical <span style="color:var(--accent2);font-size:9px">↕</span></label>
+          <div class="offset-val-row">
+            <input type="number" id="offsetV" value="0" step="1" min="-200" max="200">
+            <span class="unit" id="offsetVUnit">%</span>
+          </div>
+          <div style="font-size:9px;color:var(--text-dim);margin-top:3px">+up / −down</div>
+        </div>
+        <div class="field" style="margin-bottom:0">
+          <label>Horizontal <span style="color:var(--accent2);font-size:9px">↔</span></label>
+          <div class="offset-val-row">
+            <input type="number" id="offsetH" value="0" step="1" min="-100" max="100">
+            <span class="unit" id="offsetHUnit">%</span>
+          </div>
+          <div style="font-size:9px;color:var(--text-dim);margin-top:3px">+right / −left</div>
+        </div>
+      </div>
+
+      <!-- Visual XY dial -->
+      <div style="display:flex;justify-content:center;margin:12px 0 6px">
+        <div style="display:flex;flex-direction:column;align-items:center;gap:5px">
+          <div class="offset-dial" id="offsetDial" onmousedown="startDialDrag(event)" ontouchstart="startDialDrag(event)">
+            <div class="cross-h"></div>
+            <div class="cross-v"></div>
+            <div class="offset-dot" id="offsetDot" style="left:50%;top:50%"></div>
+          </div>
+          <div class="offset-dial-label">drag to adjust · click centre to reset</div>
+        </div>
+      </div>
+
+      <!-- Common model presets -->
+      <div class="field">
+        <label>Common Presets</label>
+        <div class="offset-presets" id="offsetPresets">
+          <div class="offset-chip active" data-v="0" data-h="0" onclick="applyOffsetPreset(this)">None (0/0)</div>
+          <div class="offset-chip" data-v="100" data-h="0" onclick="applyOffsetPreset(this)">100% V ↑<br><span style="opacity:0.5;font-size:8px">Sony/Epson laser</span></div>
+          <div class="offset-chip" data-v="62.5" data-h="0" onclick="applyOffsetPreset(this)">62.5% V ↑<br><span style="opacity:0.5;font-size:8px">Epson consumer</span></div>
+          <div class="offset-chip" data-v="50" data-h="0" onclick="applyOffsetPreset(this)">50% V ↑<br><span style="opacity:0.5;font-size:8px">Optoma / BenQ</span></div>
+          <div class="offset-chip" data-v="33" data-h="0" onclick="applyOffsetPreset(this)">33% V ↑<br><span style="opacity:0.5;font-size:8px">Short-throw typical</span></div>
+          <div class="offset-chip" data-v="-100" data-h="0" onclick="applyOffsetPreset(this)">100% V ↓<br><span style="opacity:0.5;font-size:8px">Ceiling inverted</span></div>
+          <div class="offset-chip" data-v="0" data-h="24" onclick="applyOffsetPreset(this)">24% H →<br><span style="opacity:0.5;font-size:8px">Christie / Barco</span></div>
+          <div class="offset-chip" data-v="0" data-h="-24" onclick="applyOffsetPreset(this)">24% H ←<br><span style="opacity:0.5;font-size:8px">Christie / Barco</span></div>
+        </div>
+      </div>
+
+      <div class="tip">
+        Vertical offset shifts the image above/below the lens axis. 100% = image bottom at lens centreline (common for ceiling mounts). Physical distance mode uses your selected unit.
       </div>
     </div>
 
@@ -539,7 +655,12 @@ const S = {
   // Target screen (metres internally)
   targetWidth: 3.0, targetHeight: 1.6875, targetLocked: true, overlayOn: true,
   // Split view
-  splitMode: 'single'  // 'single' | 'side-top' | 'side-3d' | 'top-3d' | 'all3'
+  splitMode: 'single',
+  // Lens offset — stored as % of screen half-height (V) and half-width (H)
+  // Positive V = image shifts UP, positive H = image shifts RIGHT
+  offsetV: 0,   // % of screen height
+  offsetH: 0,   // % of screen width
+  offsetMode: 'pct'  // 'pct' | 'dist'
 };
 
 // ─── UNIT CONVERSION HELPERS ─────────────────────────────────
@@ -627,6 +748,15 @@ function setUnit(unit) {
   document.getElementById('targetWidth').value  = +fromMetres(tw_m, unit).toFixed(unit==='m'?2:1);
   document.getElementById('targetHeight').value = +fromMetres(th_m, unit).toFixed(unit==='m'?2:1);
 
+  // If offset in distance mode, convert those too
+  if (S.offsetMode === 'dist') {
+    const ov_m = toMetres(parseFloat(document.getElementById('offsetV').value)||0, oldUnit);
+    const oh_m = toMetres(parseFloat(document.getElementById('offsetH').value)||0, oldUnit);
+    document.getElementById('offsetV').value = +fromMetres(ov_m, unit).toFixed(unit==='m'?3:2);
+    document.getElementById('offsetH').value = +fromMetres(oh_m, unit).toFixed(unit==='m'?3:2);
+  }
+  updateOffsetUnitLabels();
+
   document.getElementById('swUnit').textContent = unit;
   document.getElementById('twUnit').textContent = unit;
   document.getElementById('thUnit').textContent = unit;
@@ -681,6 +811,155 @@ function setView(v) {
   document.getElementById('axisHint').style.display = v === '3d' ? 'none' : 'flex';
   if (v === '3d') start3DAnimation();
   else { S.animating = false; S.throwDistMax > 0 ? drawAll() : drawEmpty(); }
+}
+
+// ─── LENS OFFSET ─────────────────────────────────────────────
+function updateOffsetUnitLabels() {
+  const u = S.offsetMode === 'pct' ? '%' : UNIT_LABELS[S.unit];
+  document.getElementById('offsetVUnit').textContent = u;
+  document.getElementById('offsetHUnit').textContent = u;
+}
+
+function setOffsetMode(mode) {
+  const oldMode = S.offsetMode;
+  S.offsetMode = mode;
+  document.getElementById('offModePercent').classList.toggle('active', mode === 'pct');
+  document.getElementById('offModeDist').classList.toggle('active', mode === 'dist');
+
+  // Convert existing values between % and distance
+  if (S.screenHeight > 0) {
+    const ov = parseFloat(document.getElementById('offsetV').value) || 0;
+    const oh = parseFloat(document.getElementById('offsetH').value) || 0;
+    if (oldMode === 'pct' && mode === 'dist') {
+      // pct→dist: pct is % of screen height (V) or width (H)
+      const vDist = (ov / 100) * S.screenHeight;
+      const hDist = (oh / 100) * S.screenWidth;
+      document.getElementById('offsetV').value = +fromMetres(vDist).toFixed(S.unit==='m'?3:2);
+      document.getElementById('offsetH').value = +fromMetres(hDist).toFixed(S.unit==='m'?3:2);
+      document.getElementById('offsetV').step = '0.01';
+      document.getElementById('offsetH').step = '0.01';
+    } else if (oldMode === 'dist' && mode === 'pct') {
+      // dist→pct
+      const vM = toMetres(ov);
+      const hM = toMetres(oh);
+      document.getElementById('offsetV').value = S.screenHeight > 0 ? +(vM / S.screenHeight * 100).toFixed(1) : 0;
+      document.getElementById('offsetH').value = S.screenWidth  > 0 ? +(hM / S.screenWidth  * 100).toFixed(1) : 0;
+      document.getElementById('offsetV').step = '1';
+      document.getElementById('offsetH').step = '1';
+    }
+  }
+  updateOffsetUnitLabels();
+  readOffsetState();
+  S.throwDistMax > 0 && drawAll();
+}
+
+// Read offset inputs and store as % of screen dimensions in S
+function readOffsetState() {
+  const ov = parseFloat(document.getElementById('offsetV').value) || 0;
+  const oh = parseFloat(document.getElementById('offsetH').value) || 0;
+  if (S.offsetMode === 'pct') {
+    S.offsetV = ov;  // % of screen height
+    S.offsetH = oh;  // % of screen width
+  } else {
+    // Convert distance to %
+    const vM = toMetres(ov);
+    const hM = toMetres(oh);
+    S.offsetV = S.screenHeight > 0 ? vM / S.screenHeight * 100 : 0;
+    S.offsetH = S.screenWidth  > 0 ? hM / S.screenWidth  * 100 : 0;
+  }
+  updateOffsetDial();
+}
+
+// Get offset in metres for drawing
+function getOffsetMetres() {
+  return {
+    v: (S.offsetV / 100) * S.screenHeight,  // positive = up
+    h: (S.offsetH / 100) * S.screenWidth    // positive = right
+  };
+}
+
+function applyOffsetPreset(el) {
+  document.querySelectorAll('.offset-chip').forEach(c => c.classList.remove('active'));
+  el.classList.add('active');
+  const v = parseFloat(el.dataset.v) || 0;
+  const h = parseFloat(el.dataset.h) || 0;
+  if (S.offsetMode === 'pct') {
+    document.getElementById('offsetV').value = v;
+    document.getElementById('offsetH').value = h;
+  } else {
+    // Convert % preset to distance
+    const vDist = (v / 100) * (S.screenHeight || 1.69);
+    const hDist = (h / 100) * (S.screenWidth  || 3.0);
+    document.getElementById('offsetV').value = +fromMetres(vDist).toFixed(S.unit==='m'?3:2);
+    document.getElementById('offsetH').value = +fromMetres(hDist).toFixed(S.unit==='m'?3:2);
+  }
+  readOffsetState();
+  S.throwDistMax > 0 && drawAll();
+}
+
+// ── Dial drag interaction ──
+function updateOffsetDial() {
+  // Map offsetV/H (-100..100 range, clamped) to dial position
+  const clampV = Math.max(-100, Math.min(100, S.offsetV));
+  const clampH = Math.max(-100, Math.min(100, S.offsetH));
+  const x = 50 + (clampH / 100) * 38; // 38% radius in dial coords
+  const y = 50 - (clampV / 100) * 38; // invert Y (up = lower y)
+  const dot = document.getElementById('offsetDot');
+  if (dot) { dot.style.left = x + '%'; dot.style.top = y + '%'; }
+}
+
+let _dialDragging = false;
+function startDialDrag(e) {
+  e.preventDefault();
+  const dial = document.getElementById('offsetDial');
+  const rect = dial.getBoundingClientRect();
+  const cx = rect.left + rect.width / 2;
+  const cy = rect.top  + rect.height / 2;
+  const r  = rect.width / 2;
+
+  // Click in centre = reset
+  const ex = e.touches ? e.touches[0].clientX : e.clientX;
+  const ey = e.touches ? e.touches[0].clientY : e.clientY;
+  if (Math.hypot(ex - cx, ey - cy) < 8) {
+    document.getElementById('offsetV').value = 0;
+    document.getElementById('offsetH').value = 0;
+    document.querySelectorAll('.offset-chip').forEach(c => c.classList.remove('active'));
+    document.querySelector('.offset-chip[data-v="0"][data-h="0"]').classList.add('active');
+    readOffsetState();
+    S.throwDistMax > 0 && drawAll();
+    return;
+  }
+
+  _dialDragging = true;
+  function move(ev) {
+    const mx = ev.touches ? ev.touches[0].clientX : ev.clientX;
+    const my = ev.touches ? ev.touches[0].clientY : ev.clientY;
+    const dx = Math.max(-r, Math.min(r, mx - cx));
+    const dy = Math.max(-r, Math.min(r, my - cy));
+    const pctH = +(dx / r * 100).toFixed(1);
+    const pctV = +(-dy / r * 100).toFixed(1); // invert Y
+    if (S.offsetMode === 'pct') {
+      document.getElementById('offsetH').value = pctH;
+      document.getElementById('offsetV').value = pctV;
+    } else {
+      document.getElementById('offsetH').value = +fromMetres((pctH/100)*(S.screenWidth||3)).toFixed(S.unit==='m'?3:2);
+      document.getElementById('offsetV').value = +fromMetres((pctV/100)*(S.screenHeight||1.69)).toFixed(S.unit==='m'?3:2);
+    }
+    document.querySelectorAll('.offset-chip').forEach(c => c.classList.remove('active'));
+    readOffsetState();
+    S.throwDistMax > 0 && drawAll();
+  }
+  function up() {
+    _dialDragging = false;
+    document.removeEventListener('mousemove', move);
+    document.removeEventListener('mouseup',   up);
+    document.removeEventListener('touchmove', move);
+    document.removeEventListener('touchend',  up);
+  }
+  document.addEventListener('mousemove', move);
+  document.addEventListener('mouseup',   up);
+  document.addEventListener('touchmove', move, {passive:false});
+  document.addEventListener('touchend',  up);
 }
 
 // ─── TARGET SCREEN ───────────────────────────────────────────
@@ -821,6 +1100,10 @@ function calculate() {
   S.aspect = asp; S.throwDistMin = tdMin; S.throwDistMax = tdMax;
   S.mountHeight = mh;
 
+  // Read lens offset
+  readOffsetState();
+  const off = getOffsetMetres();  // {v, h} in metres
+
   // Target screen
   readTargetInputs();
   if (S.targetLocked) {
@@ -828,14 +1111,30 @@ function calculate() {
     document.getElementById('targetHeight').value = +fromMetres(S.targetHeight).toFixed(S.unit==='m'?2:1);
   }
 
-  // Coverage: how much of target is covered by projected image (at max throw = widest beam)
-  const covW = Math.min(sw, S.targetWidth)  / S.targetWidth  * 100;
-  const covH = Math.min(sh, S.targetHeight) / S.targetHeight * 100;
-  const covPct = Math.min(covW, covH);
-  const fullyCovers = sw >= S.targetWidth - 0.001 && sh >= S.targetHeight - 0.001;
+  // Coverage: account for offset shifting the projected image
+  // projected image centre is shifted by off.v (up) and off.h (right)
+  // relative to screen/target centre
+  const projCentreV = off.v;   // positive = projected image centre is above target centre
+  const projCentreH = off.h;
+  // Compute overlap between projected rect and target rect (both centred at their own centres)
+  const projTop    =  sh/2 + projCentreV;
+  const projBot    = -sh/2 + projCentreV;
+  const projLeft   = -sw/2 + projCentreH;
+  const projRight  =  sw/2 + projCentreH;
+  const tgtTop     =  S.targetHeight / 2;
+  const tgtBot     = -S.targetHeight / 2;
+  const tgtLeft    = -S.targetWidth  / 2;
+  const tgtRight   =  S.targetWidth  / 2;
+  const overlapH   = Math.max(0, Math.min(projRight, tgtRight) - Math.max(projLeft,  tgtLeft));
+  const overlapV   = Math.max(0, Math.min(projTop,   tgtTop)   - Math.max(projBot,   tgtBot));
+  const overlapArea = overlapH * overlapV;
+  const targetArea  = S.targetWidth * S.targetHeight;
+  const covPct = targetArea > 0 ? overlapArea / targetArea * 100 : 0;
+  const fullyCovers = covPct >= 99.5;
   const coverageText = covPct.toFixed(1) + '% of target covered';
-  const coverageNote = fullyCovers ? '✓ Full coverage at max throw' :
-    `Projected: ${fd(sw)}×${fd(sh)} · Target: ${fd(S.targetWidth)}×${fd(S.targetHeight)}`;
+  const offStr = (off.v !== 0 || off.h !== 0) ? ` · Offset V:${S.offsetV.toFixed(0)}% H:${S.offsetH.toFixed(0)}%` : '';
+  const coverageNote = fullyCovers ? '✓ Full coverage' + offStr :
+    `Proj: ${fd(sw)}×${fd(sh)} · Target: ${fd(S.targetWidth)}×${fd(S.targetHeight)}${offStr}`;
   document.getElementById('res-coverage').textContent = coverageText;
   document.getElementById('res-coverage-u').textContent = coverageNote;
   document.getElementById('res-coverage').style.color =
@@ -1148,30 +1447,60 @@ function drawSideView(c, W, H) {
 
   } else {
     const availW = W - PAD*2, availH = H - PAD*2;
+    const off = getOffsetMetres();
     const allW = Math.max(S.throwDistMax, 1) * 1.3;
-    const allH = Math.max(S.screenHeight, S.targetHeight) * 3.5;
+    // Account for offset shifting image vertically — need extra space
+    const totalSH = S.screenHeight + Math.abs(off.v) * 2;
+    const allH = Math.max(totalSH, S.targetHeight) * 3.5;
     const scl = Math.min(availW / allW, availH / allH);
 
     const projX = PAD, projY = H / 2;
     const screenX = projX + S.throwDistMax * scl;
-    const screenT = projY - S.screenHeight / 2 * scl;
-    const screenB = projY + S.screenHeight / 2 * scl;
+
+    // Apply vertical offset: positive off.v shifts image UP (negative canvas Y)
+    const imgCentreY = projY - off.v * scl;
+    const screenT = imgCentreY - S.screenHeight / 2 * scl;
+    const screenB = imgCentreY + S.screenHeight / 2 * scl;
     const beamH   = screenB - screenT;
+
+    // Horizontal offset shifts the optical centre left/right in plan view — shown as
+    // a horizontal shift of the lens axis label in side view only
     const inv = mode === 'ceiling';
 
     const refY = inv ? screenT - 50 : screenB + 50;
     refLine(c, 0, refY, W, refY, inv ? 'CEILING' : 'FLOOR', 10, refY + (inv ? -5 : 13));
 
-    // Coverage overlay
+    // Draw optical axis centreline (dashed) from projector to screen centre
+    c.save();
+    c.strokeStyle = 'rgba(255,107,0,0.25)'; c.lineWidth = 1; c.setLineDash([6,5]);
+    c.beginPath(); c.moveTo(projX, projY); c.lineTo(screenX, imgCentreY); c.stroke();
+    c.setLineDash([]);
+    c.restore();
+
+    // If offset active, show offset arrow on screen
+    if (Math.abs(off.v) > 0.001) {
+      c.save();
+      c.strokeStyle = 'rgba(255,107,0,0.7)'; c.lineWidth = 1.5; c.setLineDash([3,3]);
+      c.beginPath(); c.moveTo(screenX + 20, projY); c.lineTo(screenX + 20, imgCentreY); c.stroke();
+      c.setLineDash([]);
+      const mid = (projY + imgCentreY) / 2;
+      c.font = '9px "Share Tech Mono"'; c.fillStyle = 'rgba(255,107,0,0.8)';
+      c.textAlign = 'left';
+      c.fillText(fd(Math.abs(off.v)) + (off.v > 0 ? ' ↑' : ' ↓'), screenX + 25, mid + 3);
+      c.restore();
+    }
+
+    // Coverage overlay — projected rect is shifted by offset
     const tH2 = S.targetHeight / 2 * scl;
+    // target is always centred at projY (screen plane centre)
     drawCoverageOverlay(c,
       { x: screenX, y: screenT, w: 8, h: beamH },
       { x: screenX - 4, y: projY - tH2, w: 16, h: tH2 * 2 }
     );
 
-    // Beam
+    // Beam — from projector optical centre to image corners (offset applied)
     c.beginPath(); c.moveTo(projX, projY); c.lineTo(screenX, screenT); c.lineTo(screenX, screenB); c.closePath();
-    c.fillStyle = beamFill(c, projX, projY, screenX, projY, 0.45, 0.15, 0.05); c.fill();
+    c.fillStyle = beamFill(c, projX, projY, screenX, imgCentreY, 0.45, 0.15, 0.05); c.fill();
     c.strokeStyle = 'rgba(0,229,255,0.7)'; c.lineWidth = 1.5; c.setLineDash([]);
     c.beginPath(); c.moveTo(projX,projY); c.lineTo(screenX,screenT); c.stroke();
     c.beginPath(); c.moveTo(projX,projY); c.lineTo(screenX,screenB); c.stroke();
@@ -1179,11 +1508,12 @@ function drawSideView(c, W, H) {
     const minX  = projX + S.throwDistMin * scl;
     const minFrac = S.throwDistMin / S.throwDistMax;
     const minHH = beamH * minFrac / 2;
+    const minImgCY = projY - off.v * scl * minFrac;
     c.strokeStyle = 'rgba(255,107,0,0.9)'; c.lineWidth = 2; c.setLineDash([5,4]);
-    c.beginPath(); c.moveTo(minX, projY-minHH); c.lineTo(minX, projY+minHH); c.stroke();
+    c.beginPath(); c.moveTo(minX, minImgCY-minHH); c.lineTo(minX, minImgCY+minHH); c.stroke();
     c.setLineDash([]);
     c.font='9px "Share Tech Mono"'; c.fillStyle='rgba(255,107,0,0.8)'; c.textAlign='center';
-    c.fillText('MIN', minX, projY-minHH-5); c.textAlign='left';
+    c.fillText('MIN', minX, minImgCY-minHH-5); c.textAlign='left';
 
     const scrGrad = c.createLinearGradient(screenX,screenT,screenX,screenB);
     scrGrad.addColorStop(0,'rgba(200,212,224,0.04)');
@@ -1195,7 +1525,7 @@ function drawSideView(c, W, H) {
     c.beginPath(); c.moveTo(screenX,screenT); c.lineTo(screenX,screenB); c.stroke();
 
     c.font='10px "Share Tech Mono"'; c.fillStyle='rgba(200,212,224,0.6)';
-    c.fillText(fd(S.screenHeight), screenX+14, projY+4);
+    c.fillText(fd(S.screenHeight), screenX+14, imgCentreY+4);
 
     drawProjBodyH(c, projX, projY, inv);
 
@@ -1204,8 +1534,11 @@ function drawSideView(c, W, H) {
     dimLineH(c, projX, screenX, dimY,  fd(S.throwDistMax), '#00e5ff', false);
     dimLineH(c, projX, minX,    dimY2, fd(S.throwDistMin), '#ff6b00', true);
 
+    // Offset label in corner
+    const offLabel = S.offsetV !== 0 || S.offsetH !== 0
+      ? ` · V:${S.offsetV.toFixed(0)}% H:${S.offsetH.toFixed(0)}%` : '';
     c.font='10px "Share Tech Mono"'; c.fillStyle='rgba(0,229,255,0.5)';
-    c.fillText('SIDE ELEVATION — '+(inv?'CEILING INVERTED':'FLOOR / TABLE'), 10, 18);
+    c.fillText('SIDE ELEVATION — '+(inv?'CEILING INVERTED':'FLOOR / TABLE')+offLabel, 10, 18);
   }
 }
 
@@ -1253,60 +1586,87 @@ function drawTopView(c, W, H) {
   }
 
   const allW = S.throwDistMax * 1.3;
-  const allH = Math.max(S.screenWidth, S.targetWidth) * 3;
+  const off = getOffsetMetres();
+  const totalSW = S.screenWidth + Math.abs(off.h) * 2;
+  const allH = Math.max(totalSW, S.targetWidth) * 3;
   const scl = Math.min(availW / allW, availH / allH);
 
   const projX = PAD, projY = H / 2;
   const screenX = projX + S.throwDistMax * scl;
+
+  // Horizontal offset shifts image in top view (left/right)
+  const imgCentreY = projY - off.h * scl;  // note: top view Y = world Z = left/right
   const sw2 = S.screenWidth / 2 * scl;
   const tw2 = S.targetWidth  / 2 * scl;
 
-  // Coverage overlay in top view (width comparison)
+  // Draw optical axis
+  c.save();
+  c.strokeStyle = 'rgba(255,107,0,0.2)'; c.lineWidth=1; c.setLineDash([6,5]);
+  c.beginPath(); c.moveTo(projX, projY); c.lineTo(screenX, imgCentreY); c.stroke();
+  c.setLineDash([]); c.restore();
+
+  // Show H offset arrow
+  if (Math.abs(off.h) > 0.001) {
+    c.save();
+    c.strokeStyle = 'rgba(255,107,0,0.7)'; c.lineWidth=1.5; c.setLineDash([3,3]);
+    c.beginPath(); c.moveTo(screenX+14, projY); c.lineTo(screenX+14, imgCentreY); c.stroke();
+    c.setLineDash([]);
+    c.font='9px "Share Tech Mono"'; c.fillStyle='rgba(255,107,0,0.8)'; c.textAlign='left';
+    c.fillText(fd(Math.abs(off.h))+(off.h>0?' →':' ←'), screenX+18, (projY+imgCentreY)/2+3);
+    c.restore();
+  }
+
+  // Coverage overlay in top view (width comparison, offset-shifted)
   drawCoverageOverlay(c,
-    { x: screenX, y: projY - sw2, w: 8, h: sw2*2 },
+    { x: screenX, y: imgCentreY - sw2, w: 8, h: sw2*2 },
     { x: screenX - 4, y: projY - tw2, w: 16, h: tw2*2 }
   );
 
-  // Beam fill
-  c.beginPath(); c.moveTo(projX, projY); c.lineTo(screenX, projY - sw2); c.lineTo(screenX, projY + sw2); c.closePath();
-  c.fillStyle = beamFill(c, projX, projY, screenX, projY, 0.4, 0.13, 0.04); c.fill();
+  // Beam fill — from proj to offset image corners
+  c.beginPath(); c.moveTo(projX, projY); c.lineTo(screenX, imgCentreY - sw2); c.lineTo(screenX, imgCentreY + sw2); c.closePath();
+  c.fillStyle = beamFill(c, projX, projY, screenX, imgCentreY, 0.4, 0.13, 0.04); c.fill();
 
   c.strokeStyle='rgba(0,229,255,0.7)'; c.lineWidth=1.5; c.setLineDash([]);
-  c.beginPath(); c.moveTo(projX,projY); c.lineTo(screenX,projY-sw2); c.stroke();
-  c.beginPath(); c.moveTo(projX,projY); c.lineTo(screenX,projY+sw2); c.stroke();
+  c.beginPath(); c.moveTo(projX,projY); c.lineTo(screenX,imgCentreY-sw2); c.stroke();
+  c.beginPath(); c.moveTo(projX,projY); c.lineTo(screenX,imgCentreY+sw2); c.stroke();
 
+  // Centre axis (projector axis, dashed)
   c.strokeStyle='rgba(0,229,255,0.12)'; c.lineWidth=1; c.setLineDash([8,8]);
   c.beginPath(); c.moveTo(projX,projY); c.lineTo(screenX+20,projY); c.stroke();
   c.setLineDash([]);
 
   const minX  = projX + S.throwDistMin * scl;
   const minHW = sw2 * S.throwDistMin / S.throwDistMax;
+  const minFrac = S.throwDistMin / S.throwDistMax;
+  const minCY  = projY - off.h * scl * minFrac;
   c.strokeStyle='rgba(255,107,0,0.9)'; c.lineWidth=2; c.setLineDash([5,4]);
-  c.beginPath(); c.moveTo(minX,projY-minHW); c.lineTo(minX,projY+minHW); c.stroke();
+  c.beginPath(); c.moveTo(minX,minCY-minHW); c.lineTo(minX,minCY+minHW); c.stroke();
   c.setLineDash([]);
   c.font='9px "Share Tech Mono"'; c.fillStyle='rgba(255,107,0,0.8)'; c.textAlign='center';
-  c.fillText('MIN', minX, projY-minHW-5); c.textAlign='left';
+  c.fillText('MIN', minX, minCY-minHW-5); c.textAlign='left';
 
   c.fillStyle='rgba(200,212,224,0.1)';
-  c.fillRect(screenX, projY-sw2, 8, sw2*2);
+  c.fillRect(screenX, imgCentreY-sw2, 8, sw2*2);
   c.strokeStyle='rgba(200,212,224,0.85)'; c.lineWidth=2.5;
-  c.beginPath(); c.moveTo(screenX,projY-sw2); c.lineTo(screenX,projY+sw2); c.stroke();
+  c.beginPath(); c.moveTo(screenX,imgCentreY-sw2); c.lineTo(screenX,imgCentreY+sw2); c.stroke();
 
   const halfAngle = Math.atan2(sw2, S.throwDistMax * scl) * 180 / Math.PI;
   c.font='10px "Share Tech Mono"'; c.fillStyle='rgba(0,229,255,0.55)';
-  c.fillText('∠ '+halfAngle.toFixed(1)+'° half-angle', projX+10, projY-sw2-8);
+  c.fillText('∠ '+halfAngle.toFixed(1)+'° half-angle', projX+10, imgCentreY-sw2-8);
 
   c.fillStyle='#1a2230'; c.strokeStyle='rgba(0,229,255,0.55)'; c.lineWidth=1.5;
   c.fillRect(projX-24, projY-10, 24, 20); c.strokeRect(projX-24, projY-10, 24, 20);
   c.beginPath(); c.arc(projX-4, projY, 5, 0, Math.PI*2);
   c.fillStyle='rgba(0,229,255,0.4)'; c.fill();
 
-  dimLineH(c, projX, screenX, projY+sw2+45, fd(S.throwDistMax), '#00e5ff', false);
-  dimLineH(c, projX, minX, projY+sw2+25, fd(S.throwDistMin), '#ff6b00', true);
-  dimLineV(c, projY-sw2, projY+sw2, screenX+30, fd(S.screenWidth));
+  dimLineH(c, projX, screenX, projY+Math.max(sw2,tw2)+45, fd(S.throwDistMax), '#00e5ff', false);
+  dimLineH(c, projX, minX, projY+Math.max(sw2,tw2)+25, fd(S.throwDistMin), '#ff6b00', true);
+  dimLineV(c, imgCentreY-sw2, imgCentreY+sw2, screenX+30, fd(S.screenWidth));
 
+  const offLabel = S.offsetV !== 0 || S.offsetH !== 0
+    ? ` · V:${S.offsetV.toFixed(0)}% H:${S.offsetH.toFixed(0)}%` : '';
   c.font='10px "Share Tech Mono"'; c.fillStyle='rgba(0,229,255,0.5)';
-  c.fillText('PLAN VIEW (TOP DOWN) — '+(S.mountMode==='ceiling'?'CEILING INVERTED':'FLOOR / TABLE'), 10, 18);
+  c.fillText('PLAN VIEW (TOP DOWN) — '+(S.mountMode==='ceiling'?'CEILING INVERTED':'FLOOR / TABLE')+offLabel, 10, 18);
 }
 
 // ─── 3D PERSPECTIVE VIEW ─────────────────────────────────────
@@ -1330,16 +1690,19 @@ function drawPerspView(angleDeg, c, W, H) {
   const tw2 = S.targetWidth/2;
   const th2 = S.targetHeight/2;
   const mode = S.mountMode;
+  const off  = getOffsetMetres();  // {v, h} in metres
 
   let proj, scrCorners, tgtCorners;
 
   if (mode === 'down') {
     proj = p3(0, S.mountHeight/2, 0);
-    scrCorners = [p3(-sw2,0, td/2), p3(sw2,0, td/2), p3(sw2,0,-td/2), p3(-sw2,0,-td/2)];
+    // offset: H shifts left/right (z-axis), V shifts not applicable to floor projection
+    scrCorners = [p3(-sw2+off.h,0, td/2), p3(sw2+off.h,0, td/2), p3(sw2+off.h,0,-td/2), p3(-sw2+off.h,0,-td/2)];
     tgtCorners = [p3(-tw2,0, td/2), p3(tw2,0, td/2), p3(tw2,0,-td/2), p3(-tw2,0,-td/2)];
   } else {
     proj = p3(-td-0.2, 0, 0);
-    scrCorners = [p3(0, sh2, -sw2), p3(0,-sh2,-sw2), p3(0,-sh2,sw2), p3(0,sh2,sw2)];
+    // offset: V shifts up/down (y-axis), H shifts left/right (z-axis)
+    scrCorners = [p3(0, sh2+off.v, -sw2+off.h), p3(0,-sh2+off.v,-sw2+off.h), p3(0,-sh2+off.v,sw2+off.h), p3(0,sh2+off.v,sw2+off.h)];
     tgtCorners = [p3(0, th2, -tw2), p3(0,-th2,-tw2), p3(0,-th2,tw2), p3(0,th2,tw2)];
   }
 
@@ -1392,11 +1755,15 @@ function drawPerspView(angleDeg, c, W, H) {
   c.fillText('⟳ AUTO-ROTATING', W/2, H-18);
   c.textAlign='left';
   c.font='9px "Share Tech Mono"'; c.fillStyle='rgba(0,229,255,0.3)';
-  c.fillText('THROW: '+fd(S.throwDistMin)+' – '+fd(S.throwDistMax), 10, H-30);
-  c.fillText('SCREEN: '+fd(S.screenWidth)+' × '+fd(S.screenHeight), 10, H-17);
+  c.fillText('THROW: '+fd(S.throwDistMin)+' – '+fd(S.throwDistMax), 10, H-40);
+  c.fillText('SCREEN: '+fd(S.screenWidth)+' × '+fd(S.screenHeight), 10, H-28);
+  if (S.offsetV !== 0 || S.offsetH !== 0) {
+    c.fillStyle='rgba(255,107,0,0.5)';
+    c.fillText('OFFSET V:'+S.offsetV.toFixed(0)+'% H:'+S.offsetH.toFixed(0)+'%', 10, H-16);
+  }
   if (S.overlayOn) {
     c.fillStyle='rgba(127,255,0,0.5)';
-    c.fillText('TARGET: '+fd(S.targetWidth)+' × '+fd(S.targetHeight), 10, H-5);
+    c.fillText('TARGET: '+fd(S.targetWidth)+' × '+fd(S.targetHeight), 10, S.offsetV !== 0 || S.offsetH !== 0 ? H-4 : H-16);
   }
 }
 
@@ -1461,8 +1828,8 @@ async function runSearch(query) {
         messages: [{ role: 'user', content:
           `Search projector-database.com/pro/index-en.php AND projectorcentral.com/projectors.cfm for: "${query}".
 Return a JSON array of up to 6 results:
-[{"name":"Full model","brand":"Brand","lumens":5000,"throwMin":1.38,"throwMax":2.22,"aspect":"16:9","resolution":"1920x1200","source":"projector-database.com"}]
-Use null for unknown. Only real verified specs from those two sites.` }]
+[{"name":"Full model","brand":"Brand","lumens":5000,"throwMin":1.38,"throwMax":2.22,"aspect":"16:9","resolution":"1920x1200","offsetVpct":100,"offsetHpct":0,"source":"projector-database.com"}]
+offsetVpct = vertical lens shift as % of screen height (positive=up). offsetHpct = horizontal lens shift as % of screen width (positive=right). Use null for unknown. Only real verified specs from those two sites.` }]
       })
     });
     const data = await resp.json();
@@ -1495,6 +1862,17 @@ function applyProjector(i) {
     const m = { '16:9':'1.778','4:3':'1.333','16:10':'1.6' };
     if (m[p.aspect]) document.getElementById('aspectRatio').value = m[p.aspect];
   }
+  // Apply lens offset if returned
+  if (p.offsetVpct != null) {
+    S.offsetMode = 'pct';
+    document.getElementById('offModePercent').classList.add('active');
+    document.getElementById('offModeDist').classList.remove('active');
+    document.getElementById('offsetV').value = p.offsetVpct;
+    document.getElementById('offsetH').value = p.offsetHpct != null ? p.offsetHpct : 0;
+    updateOffsetUnitLabels();
+    // clear preset highlights
+    document.querySelectorAll('.offset-chip').forEach(c => c.classList.remove('active'));
+  }
   document.getElementById('dbResults').classList.remove('open');
   document.getElementById('dbSearch').value = p.name;
   _lastQuery = p.name;
@@ -1517,6 +1895,16 @@ document.getElementById('targetWidth').addEventListener('input', () => {
     document.getElementById('targetHeight').value = +fromMetres(th).toFixed(S.unit==='m'?2:1);
   }
 });
+// Offset inputs: live redraw
+['offsetV','offsetH'].forEach(id => {
+  document.getElementById(id).addEventListener('input', () => {
+    document.querySelectorAll('.offset-chip').forEach(c => c.classList.remove('active'));
+    readOffsetState();
+    S.throwDistMax > 0 && drawAll();
+  });
+});
+updateOffsetUnitLabels();
+updateOffsetDial();
 updatePresetChips();
 resizeCanvas();
 drawEmpty();
