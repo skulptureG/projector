@@ -253,7 +253,22 @@
   .split-btn:hover { border-color:var(--accent3); color:var(--accent3); }
   .split-btn.active { background:rgba(127,255,0,0.08); border-color:var(--accent3); color:var(--accent3); }
 
-  /* ── Lens offset ── */
+  /* ── Room dimensions ── */
+  .room-grid { display:grid; grid-template-columns:1fr 1fr; gap:8px; }
+  .room-preview {
+    position:relative; width:100%; aspect-ratio:2/1; margin-top:8px;
+    background:var(--bg); border:1px solid var(--border); overflow:hidden;
+  }
+  .room-preview canvas { width:100%; height:100%; display:block; }
+  .room-dim-badge {
+    font-family:'Share Tech Mono',monospace; font-size:8px; color:var(--text-dim);
+    text-align:center; padding:3px 0; letter-spacing:0.05em;
+  }
+  /* Draggable projector position slider */
+  .proj-pos-wrap { margin-top:6px; }
+  .proj-pos-wrap label { display:block; font-size:11px; color:var(--text-dim); text-transform:uppercase; letter-spacing:0.08em; margin-bottom:4px; }
+  .proj-pos-slider { width:100%; accent-color:var(--accent2); cursor:pointer; }
+  .proj-pos-val { font-family:'Share Tech Mono',monospace; font-size:10px; color:var(--accent2); margin-top:2px; }
   .offset-grid { display:grid; grid-template-columns:1fr 1fr; gap:8px; }
   .offset-dial-wrap { display:flex; flex-direction:column; align-items:center; gap:6px; }
   .offset-dial {
@@ -331,7 +346,7 @@
 
 <header>
   <div class="logo">Throw<span>CAD</span> — Projector Visualiser</div>
-  <div class="header-badge">v2.6 // SPLIT VIEW FIXED</div>
+  <div class="header-badge">v2.7 // ROOM CONTEXT</div>
 </header>
 
 <div class="layout">
@@ -564,6 +579,67 @@
       </div>
     </div>
 
+    </div>
+
+    <div class="section">
+      <div class="section-label">Room Dimensions</div>
+
+      <div class="room-grid">
+        <div class="field" style="margin-bottom:0">
+          <label>Room Width</label>
+          <div class="input-row">
+            <input type="number" id="roomWidth" value="8.0" step="0.1" min="1" max="9999" oninput="onRoomChange()">
+            <span class="unit" id="rwUnit">m</span>
+          </div>
+        </div>
+        <div class="field" style="margin-bottom:0">
+          <label>Room Depth</label>
+          <div class="input-row">
+            <input type="number" id="roomDepth" value="10.0" step="0.1" min="1" max="9999" oninput="onRoomChange()">
+            <span class="unit" id="rdUnit">m</span>
+          </div>
+        </div>
+        <div class="field" style="margin-bottom:0">
+          <label>Ceiling Height</label>
+          <div class="input-row">
+            <input type="number" id="roomHeight" value="3.0" step="0.1" min="1" max="9999" oninput="onRoomChange()">
+            <span class="unit" id="rhUnit">m</span>
+          </div>
+        </div>
+        <div class="field" style="margin-bottom:0">
+          <label>Screen wall dist</label>
+          <div class="input-row">
+            <input type="number" id="screenWallDist" value="0.1" step="0.1" min="0" max="9999" oninput="onRoomChange()">
+            <span class="unit" id="swdUnit">m</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Projector horizontal position slider -->
+      <div class="proj-pos-wrap">
+        <label>Projector distance from screen wall</label>
+        <input type="range" class="proj-pos-slider" id="projDistSlider" min="0" max="100" value="50" oninput="onProjDistSlider()">
+        <div class="proj-pos-val" id="projDistVal">—</div>
+      </div>
+
+      <!-- Projector vertical position — only shown for floor/ceiling modes -->
+      <div class="field" style="margin-top:8px;" id="projHeightField">
+        <label id="projHeightLabel">Projector lens height</label>
+        <div class="input-row">
+          <input type="number" id="projLensHeight" value="1.2" step="0.1" min="0" max="99999" oninput="onRoomChange()">
+          <span class="unit" id="plhUnit">m above floor</span>
+        </div>
+      </div>
+
+      <!-- Mini room preview canvas -->
+      <div class="room-preview">
+        <canvas id="roomPreviewCanvas"></canvas>
+      </div>
+      <div class="room-dim-badge" id="roomDimBadge">W — × D — × H —</div>
+
+      <div class="tip" style="margin-top:6px">Room sets the space context. Projector position is driven by mount mode + height fields above. The beam is constrained within the room.</div>
+    </div>
+
     <div class="section">
       <div class="section-label">Calculated Results</div>
       <div class="results-grid">
@@ -672,15 +748,21 @@ const S = {
   aspect: 1.778, mountMode: 'floor', mountHeight: 3.0,
   unit: 'm', throwDistMin: 0, throwDistMax: 0,
   currentView: 'side', angle3d: 25, animating: false,
-  // Target screen (metres internally)
+  // Target screen
   targetWidth: 3.0, targetHeight: 1.6875, targetLocked: true, overlayOn: true,
   // Split view
   splitMode: 'single',
-  // Lens offset — stored as % of screen half-height (V) and half-width (H)
-  // Positive V = image shifts UP, positive H = image shifts RIGHT
-  offsetV: 0,   // % of screen height
-  offsetH: 0,   // % of screen width
-  offsetMode: 'pct'  // 'pct' | 'dist'
+  // Lens offset
+  offsetV: 0, offsetH: 0, offsetMode: 'pct',
+  // Room dimensions (metres)
+  roomWidth: 8.0, roomDepth: 10.0, roomHeight: 3.0,
+  // screenWallDist: gap between front screen-wall and screen face
+  screenWallDist: 0.1,
+  // projDistFromScreen: horizontal distance from projector lens to screen (metres)
+  // This replaces the old mountHeight concept for horizontal placement
+  projDistFromScreen: 5.0,
+  // projLensHeight: lens height above floor (floor mode) or below ceiling (ceiling/down)
+  projLensHeight: 1.2
 };
 
 // ─── UNIT CONVERSION HELPERS ─────────────────────────────────
@@ -780,11 +862,27 @@ function setUnit(unit) {
   const mh_m  = toMetres(parseFloat(document.getElementById('mountHeight').value)||3, oldUnit);
   const tw_m  = toMetres(parseFloat(document.getElementById('targetWidth').value)||3, oldUnit);
   const th_m  = toMetres(parseFloat(document.getElementById('targetHeight').value)||1.69, oldUnit);
+  const rw_m  = toMetres(parseFloat(document.getElementById('roomWidth').value)||8, oldUnit);
+  const rd_m  = toMetres(parseFloat(document.getElementById('roomDepth').value)||10, oldUnit);
+  const rh_m  = toMetres(parseFloat(document.getElementById('roomHeight').value)||3, oldUnit);
+  const swd_m = toMetres(parseFloat(document.getElementById('screenWallDist').value)||0.1, oldUnit);
+  const plh_m = toMetres(parseFloat(document.getElementById('projLensHeight').value)||1.2, oldUnit);
 
   document.getElementById('screenWidth').value = +fromMetres(sw_m, unit).toFixed(unit==='m'?2:1);
   document.getElementById('mountHeight').value  = +fromMetres(mh_m, unit).toFixed(unit==='m'?2:1);
   document.getElementById('targetWidth').value  = +fromMetres(tw_m, unit).toFixed(unit==='m'?2:1);
   document.getElementById('targetHeight').value = +fromMetres(th_m, unit).toFixed(unit==='m'?2:1);
+  document.getElementById('roomWidth').value    = +fromMetres(rw_m, unit).toFixed(unit==='m'?1:0);
+  document.getElementById('roomDepth').value    = +fromMetres(rd_m, unit).toFixed(unit==='m'?1:0);
+  document.getElementById('roomHeight').value   = +fromMetres(rh_m, unit).toFixed(unit==='m'?2:1);
+  document.getElementById('screenWallDist').value = +fromMetres(swd_m, unit).toFixed(unit==='m'?2:1);
+  document.getElementById('projLensHeight').value = +fromMetres(plh_m, unit).toFixed(unit==='m'?2:1);
+
+  // Room unit labels
+  ['rwUnit','rdUnit','rhUnit','swdUnit','plhUnit'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.textContent = id === 'plhUnit' ? unit + (S.mountMode === 'floor' ? ' above floor' : ' below ceiling') : unit;
+  });
 
   // If offset in distance mode, convert those too
   if (S.offsetMode === 'dist') {
@@ -837,18 +935,186 @@ function setMount(mode) {
   updateHeightUnitLabel();
   document.getElementById('ib-mount').textContent =
     {floor:'Floor Flat', ceiling:'Ceiling Inverted', down:'Ceiling Down'}[mode];
+  // Sync projector lens height from room when mount mode changes
+  syncProjHeightFromRoom();
+  onRoomChange();
   S.throwDistMax > 0 && drawAll();
+}
+
+// Compute projector lens height above floor based on mount mode + room
+function getProjLensHeightAboveFloor() {
+  const rh = S.roomHeight;
+  const plh = S.projLensHeight;
+  if (S.mountMode === 'floor') {
+    return plh; // above floor
+  } else {
+    // ceiling or down: projLensHeight = distance below ceiling → lens is at rh - plh
+    return Math.max(0, rh - plh);
+  }
+}
+
+// When mount mode changes, snap the lens height to a sensible default
+function syncProjHeightFromRoom() {
+  const rh = S.roomHeight || 3.0;
+  const mode = S.mountMode;
+  let newH;
+  if (mode === 'floor') {
+    newH = 1.2; // typical projector on stand/table
+  } else {
+    newH = 0.3; // typical ceiling mount drop
+  }
+  S.projLensHeight = newH;
+  document.getElementById('projLensHeight').value = +fromMetres(newH).toFixed(S.unit==='m'?2:1);
+  updateProjHeightLabel();
+}
+
+function updateProjHeightLabel() {
+  const u = UNIT_LABELS[S.unit];
+  const mode = S.mountMode;
+  const el = document.getElementById('plhUnit');
+  if (el) el.textContent = mode === 'floor' ? `${u} above floor` : `${u} below ceiling`;
+  const lbl = document.getElementById('projHeightLabel');
+  if (lbl) lbl.textContent = mode === 'floor' ? 'Projector lens height' : 'Drop from ceiling';
 }
 
 // ─── VIEW (SINGLE) ───────────────────────────────────────────
 function setView(v) {
-  if (S.splitMode !== 'single') return; // ignore in split mode
+  if (S.splitMode !== 'single') return;
   S.currentView = v;
   ['side','top','3d'].forEach(t =>
     document.getElementById('tab-'+t).classList.toggle('active', t === v));
   document.getElementById('axisHint').style.display = v === '3d' ? 'none' : 'flex';
   if (v === '3d') start3DAnimation();
   else { S.animating = false; S.throwDistMax > 0 ? drawAll() : drawEmpty(); }
+}
+
+// ─── ROOM CHANGE ─────────────────────────────────────────────
+function onRoomChange() {
+  // Read room dims
+  S.roomWidth  = toMetres(parseFloat(document.getElementById('roomWidth').value)  || 8);
+  S.roomDepth  = toMetres(parseFloat(document.getElementById('roomDepth').value)  || 10);
+  S.roomHeight = toMetres(parseFloat(document.getElementById('roomHeight').value) || 3);
+  S.screenWallDist = toMetres(parseFloat(document.getElementById('screenWallDist').value) || 0.1);
+  S.projLensHeight = toMetres(parseFloat(document.getElementById('projLensHeight').value) || 1.2);
+
+  // Update slider bounds (projector can slide from screenWallDist+0.5m to roomDepth-0.3m)
+  const minDist = 0.3;
+  const maxDist = Math.max(S.roomDepth - 0.3, minDist + 0.5);
+  const slider = document.getElementById('projDistSlider');
+  const pct = parseFloat(slider.value) / 100;
+  S.projDistFromScreen = minDist + pct * (maxDist - minDist);
+  updateProjHeightLabel();
+  updateProjDistLabel();
+  drawRoomPreview();
+  if (S.throwDistMax > 0) drawAll();
+}
+
+function onProjDistSlider() {
+  const minDist = 0.3;
+  const maxDist = Math.max(S.roomDepth - 0.3, minDist + 0.5);
+  const pct = parseFloat(document.getElementById('projDistSlider').value) / 100;
+  S.projDistFromScreen = minDist + pct * (maxDist - minDist);
+  updateProjDistLabel();
+  drawRoomPreview();
+  if (S.throwDistMax > 0) drawAll();
+}
+
+function updateProjDistLabel() {
+  const el = document.getElementById('projDistVal');
+  if (el) el.textContent = fd(S.projDistFromScreen) + ' from screen wall';
+}
+
+// ─── ROOM MINI PREVIEW ───────────────────────────────────────
+function drawRoomPreview() {
+  const previewCanvas = document.getElementById('roomPreviewCanvas');
+  if (!previewCanvas) return;
+  const wrap = previewCanvas.parentElement;
+  const pw = wrap.clientWidth || 280;
+  const ph = Math.round(pw / 2);
+  previewCanvas.width  = pw;
+  previewCanvas.height = ph;
+  const c = previewCanvas.getContext('2d');
+  c.clearRect(0, 0, pw, ph);
+
+  const PAD = 18;
+  const rw = S.roomDepth;  // room depth = horizontal in side view
+  const rh = S.roomHeight; // ceiling height = vertical
+  const scl = Math.min((pw - PAD*2) / rw, (ph - PAD*2) / rh);
+
+  const ox = PAD;
+  const oy = ph - PAD;
+
+  // Floor
+  c.fillStyle = 'rgba(0,229,255,0.04)';
+  c.fillRect(ox, oy - rh*scl, rw*scl, rh*scl);
+
+  // Room outline
+  c.strokeStyle = 'rgba(0,229,255,0.3)'; c.lineWidth = 1.5;
+  c.strokeRect(ox, oy - rh*scl, rw*scl, rh*scl);
+
+  // Floor label
+  c.save();
+  c.strokeStyle = 'rgba(0,229,255,0.5)'; c.lineWidth = 2;
+  c.beginPath(); c.moveTo(ox, oy); c.lineTo(ox + rw*scl, oy); c.stroke();
+  c.restore();
+
+  // Ceiling label
+  c.save();
+  c.strokeStyle = 'rgba(90,106,122,0.6)'; c.lineWidth = 2;
+  c.beginPath(); c.moveTo(ox, oy-rh*scl); c.lineTo(ox + rw*scl, oy-rh*scl); c.stroke();
+  c.restore();
+
+  // Screen wall (left side)
+  const swd = S.screenWallDist;
+  const screenWallX = ox + swd*scl;
+  c.strokeStyle = 'rgba(200,212,224,0.6)'; c.lineWidth = 2;
+  c.beginPath(); c.moveTo(screenWallX, oy); c.lineTo(screenWallX, oy - rh*scl); c.stroke();
+  // Screen face
+  const screenBot = oy - (getProjLensHeightAboveFloor() - S.screenHeight/2)*scl;
+  const screenTop = screenBot - S.screenHeight*scl;
+  c.strokeStyle = 'rgba(200,212,224,1)'; c.lineWidth = 3;
+  c.beginPath(); c.moveTo(screenWallX, screenTop); c.lineTo(screenWallX, screenBot); c.stroke();
+
+  // Projector
+  const projX_room = S.projDistFromScreen + swd; // from left wall
+  const projY_abs  = getProjLensHeightAboveFloor();
+  const projCX = ox + projX_room * scl;
+  const projCY = oy - projY_abs * scl;
+
+  // Beam (simplified triangle)
+  if (S.throwDistMax > 0) {
+    const scrCentreX = ox + swd*scl;
+    const off = getOffsetMetres();
+    const imgCentreY_abs = projY_abs + off.v; // offset shifts where beam points
+    const scrCentreY = oy - imgCentreY_abs * scl;
+    const beamHalf = S.screenHeight / 2 * scl;
+    c.beginPath();
+    c.moveTo(projCX, projCY);
+    c.lineTo(scrCentreX, scrCentreY - beamHalf);
+    c.lineTo(scrCentreX, scrCentreY + beamHalf);
+    c.closePath();
+    c.fillStyle = 'rgba(0,229,255,0.12)'; c.fill();
+    c.strokeStyle = 'rgba(0,229,255,0.5)'; c.lineWidth = 1; c.stroke();
+  }
+
+  // Projector dot
+  c.beginPath(); c.arc(projCX, projCY, 5, 0, Math.PI*2);
+  c.fillStyle = 'rgba(255,107,0,0.9)'; c.fill();
+  c.strokeStyle = 'rgba(255,107,0,1)'; c.lineWidth = 1.5; c.stroke();
+
+  // Labels
+  c.font = '8px "Share Tech Mono"';
+  c.fillStyle = 'rgba(0,229,255,0.5)';
+  c.textAlign = 'right';
+  c.fillText(fd(rh), ox - 2, oy - rh*scl/2);
+  c.textAlign = 'center';
+  c.fillStyle = 'rgba(90,106,122,0.7)';
+  c.fillText(fd(rw), ox + rw*scl/2, oy + 10);
+  c.textAlign = 'left';
+
+  // Update badge
+  const badge = document.getElementById('roomDimBadge');
+  if (badge) badge.textContent = `W ${fd(S.roomWidth)} × D ${fd(S.roomDepth)} × H ${fd(S.roomHeight)}`;
 }
 
 // ─── LENS OFFSET ─────────────────────────────────────────────
@@ -1226,6 +1492,15 @@ function calculate() {
   readOffsetState();
   const off = getOffsetMetres();  // {v, h} in metres
 
+  // Read room state
+  S.roomWidth  = toMetres(parseFloat(document.getElementById('roomWidth').value)  || 8);
+  S.roomDepth  = toMetres(parseFloat(document.getElementById('roomDepth').value)  || 10);
+  S.roomHeight = toMetres(parseFloat(document.getElementById('roomHeight').value) || 3);
+  S.screenWallDist = toMetres(parseFloat(document.getElementById('screenWallDist').value) || 0.1);
+  S.projLensHeight = toMetres(parseFloat(document.getElementById('projLensHeight').value) || 1.2);
+  // projDistFromScreen comes from slider — already set in S.projDistFromScreen
+  updateProjDistLabel();
+
   // Target screen
   readTargetInputs();
   if (S.targetLocked) {
@@ -1436,24 +1711,31 @@ function drawCoverageOverlay(c, projArea, targetArea) {
 
 // ─── SIDE VIEW ────────────────────────────────────────────────
 function drawSideView(c, W, H) {
-  const PAD = 90;
+  const PAD = 70;
   const mode = S.mountMode;
 
   if (mode === 'down') {
+    // ── DOWN: projector mounts on ceiling, shoots straight down ──
     const availH = H - PAD*2, availW = W - PAD*2;
-    const allH = Math.max(S.throwDistMax, S.targetHeight) * 1.3;
+    const rh = S.roomHeight;
+    const allH = Math.max(rh, 1) * 1.15;
     const allW = Math.max(S.screenWidth, S.targetWidth) * 3.5;
     const scl = Math.min(availH / allH, availW / allW);
 
-    const projX = W / 2, projY = PAD;
-    const screenY = projY + S.throwDistMax * scl;
+    const floorY   = H - PAD;
+    const ceilY    = floorY - rh * scl;
+    const projX    = W / 2;
+    const projLensH = getProjLensHeightAboveFloor(); // height above floor
+    const projY    = floorY - projLensH * scl;
+
+    // Room envelope
+    _drawRoomEnvelopeV(c, W, PAD, floorY, ceilY);
+
+    const screenY = floorY; // screen on floor
     const screenL = projX - S.screenWidth / 2 * scl;
     const screenR = projX + S.screenWidth / 2 * scl;
 
-    refLine(c, 0, projY - 20, W, projY - 20, 'CEILING', 10, projY - 24);
-    refLine(c, 0, screenY + 30, W, screenY + 30, 'FLOOR', 10, screenY + 42);
-
-    // Coverage overlay (top view for 'down' mode = just width strip)
+    // Coverage overlay
     const tL = projX - S.targetWidth/2*scl;
     const tR = projX + S.targetWidth/2*scl;
     drawCoverageOverlay(c,
@@ -1464,7 +1746,6 @@ function drawSideView(c, W, H) {
     // Beam fill
     c.beginPath(); c.moveTo(projX, projY); c.lineTo(screenL, screenY); c.lineTo(screenR, screenY); c.closePath();
     c.fillStyle = beamFill(c, projX, projY, projX, screenY, 0.45, 0.15, 0.05); c.fill();
-
     c.strokeStyle = 'rgba(0,229,255,0.7)'; c.lineWidth = 1.5; c.setLineDash([]);
     c.beginPath(); c.moveTo(projX,projY); c.lineTo(screenL,screenY); c.stroke();
     c.beginPath(); c.moveTo(projX,projY); c.lineTo(screenR,screenY); c.stroke();
@@ -1483,111 +1764,163 @@ function drawSideView(c, W, H) {
     c.fillRect(screenL, screenY-3, screenR-screenL, 6);
     c.strokeStyle = 'rgba(200,212,224,0.8)'; c.lineWidth = 2.5;
     c.beginPath(); c.moveTo(screenL,screenY); c.lineTo(screenR,screenY); c.stroke();
-
     c.font='10px "Share Tech Mono"'; c.fillStyle='rgba(200,212,224,0.6)'; c.textAlign='center';
     c.fillText(fd(S.screenWidth), (screenL+screenR)/2, screenY+15); c.textAlign='left';
 
     drawProjBodyDown(c, projX, projY - 10);
-    dimLineV(c, projY, screenY, screenR + 30, fd(S.throwDistMax));
+
+    // Dimension: lens to floor
+    dimLineV(c, projY, floorY, screenR + 30, fd(projLensH));
+    // Room height dim
+    dimLineV(c, ceilY, floorY, projX + S.screenWidth/2*scl + 55, fd(rh));
 
     c.font='10px "Share Tech Mono"'; c.fillStyle='rgba(0,229,255,0.5)';
     c.fillText('SIDE ELEVATION — CEILING DOWN', 10, 18);
 
   } else {
+    // ── FLOOR or CEILING INVERTED: projector shoots horizontally ──
     const availW = W - PAD*2, availH = H - PAD*2;
     const off = getOffsetMetres();
-    const allW = Math.max(S.throwDistMax, 1) * 1.3;
-    // Account for offset shifting image vertically — need extra space
-    const totalSH = S.screenHeight + Math.abs(off.v) * 2;
-    const allH = Math.max(totalSH, S.targetHeight) * 3.5;
+
+    // Room dimensions drive the scale
+    const rh = S.roomHeight;    // ceiling height
+    const rd = S.projDistFromScreen + S.screenWallDist + S.throwDistMax * 0.15; // total horizontal span
+    const allW = Math.max(S.projDistFromScreen + S.screenWallDist, rd) * 1.2;
+    const allH = Math.max(rh, S.screenHeight + Math.abs(off.v)) * 1.15;
     const scl = Math.min(availW / allW, availH / allH);
 
-    const projX = PAD, projY = H / 2;
-    const screenX = projX + S.throwDistMax * scl;
+    // Canvas coords: floor at bottom, left = screen wall
+    const floorY = H - PAD;
+    const ceilY  = floorY - rh * scl;
+    const wallX  = PAD + S.screenWallDist * scl; // screen wall X
 
-    // Apply vertical offset: positive off.v shifts image UP (negative canvas Y)
-    const imgCentreY = projY - off.v * scl;
-    const screenT = imgCentreY - S.screenHeight / 2 * scl;
-    const screenB = imgCentreY + S.screenHeight / 2 * scl;
-    const beamH   = screenB - screenT;
+    // Projector lens position
+    const projLensH = getProjLensHeightAboveFloor();
+    const projX     = wallX + S.projDistFromScreen * scl;
+    const projY     = floorY - projLensH * scl;
 
-    // Horizontal offset shifts the optical centre left/right in plan view — shown as
-    // a horizontal shift of the lens axis label in side view only
+    // Screen position (anchored to screen wall, centred on lens axis + offset)
     const inv = mode === 'ceiling';
+    // Screen vertical centre = projector lens height + vertical offset
+    const scrCentreY = floorY - (projLensH + off.v) * scl;
+    const screenT    = scrCentreY - S.screenHeight / 2 * scl;
+    const screenB    = scrCentreY + S.screenHeight / 2 * scl;
+    const screenX    = wallX;
+    const beamH      = screenB - screenT;
 
-    const refY = inv ? screenT - 50 : screenB + 50;
-    refLine(c, 0, refY, W, refY, inv ? 'CEILING' : 'FLOOR', 10, refY + (inv ? -5 : 13));
+    // Room envelope
+    _drawRoomEnvelopeH(c, W, PAD, floorY, ceilY, wallX);
 
-    // Draw optical axis centreline (dashed) from projector to screen centre
+    // Optical axis dashed line
     c.save();
-    c.strokeStyle = 'rgba(255,107,0,0.25)'; c.lineWidth = 1; c.setLineDash([6,5]);
-    c.beginPath(); c.moveTo(projX, projY); c.lineTo(screenX, imgCentreY); c.stroke();
-    c.setLineDash([]);
-    c.restore();
+    c.strokeStyle = 'rgba(255,107,0,0.2)'; c.lineWidth = 1; c.setLineDash([6,5]);
+    c.beginPath(); c.moveTo(projX, projY); c.lineTo(screenX, scrCentreY); c.stroke();
+    c.setLineDash([]); c.restore();
 
-    // If offset active, show offset arrow on screen
+    // Vertical offset arrow
     if (Math.abs(off.v) > 0.001) {
       c.save();
       c.strokeStyle = 'rgba(255,107,0,0.7)'; c.lineWidth = 1.5; c.setLineDash([3,3]);
-      c.beginPath(); c.moveTo(screenX + 20, projY); c.lineTo(screenX + 20, imgCentreY); c.stroke();
+      c.beginPath(); c.moveTo(screenX + 20, projY); c.lineTo(screenX + 20, scrCentreY); c.stroke();
       c.setLineDash([]);
-      const mid = (projY + imgCentreY) / 2;
-      c.font = '9px "Share Tech Mono"'; c.fillStyle = 'rgba(255,107,0,0.8)';
-      c.textAlign = 'left';
-      c.fillText(fd(Math.abs(off.v)) + (off.v > 0 ? ' ↑' : ' ↓'), screenX + 25, mid + 3);
+      c.font = '9px "Share Tech Mono"'; c.fillStyle = 'rgba(255,107,0,0.8)'; c.textAlign = 'left';
+      c.fillText(fd(Math.abs(off.v)) + (off.v > 0 ? ' ↑' : ' ↓'), screenX + 25, (projY + scrCentreY)/2 + 3);
       c.restore();
     }
 
-    // Coverage overlay — projected rect is shifted by offset
+    // Coverage overlay
     const tH2 = S.targetHeight / 2 * scl;
-    // target is always centred at projY (screen plane centre)
     drawCoverageOverlay(c,
       { x: screenX, y: screenT, w: 8, h: beamH },
-      { x: screenX - 4, y: projY - tH2, w: 16, h: tH2 * 2 }
+      { x: screenX - 4, y: scrCentreY - tH2, w: 16, h: tH2 * 2 }
     );
 
-    // Beam — from projector optical centre to image corners (offset applied)
+    // Beam
     c.beginPath(); c.moveTo(projX, projY); c.lineTo(screenX, screenT); c.lineTo(screenX, screenB); c.closePath();
-    c.fillStyle = beamFill(c, projX, projY, screenX, imgCentreY, 0.45, 0.15, 0.05); c.fill();
+    c.fillStyle = beamFill(c, projX, projY, screenX, scrCentreY, 0.45, 0.15, 0.05); c.fill();
     c.strokeStyle = 'rgba(0,229,255,0.7)'; c.lineWidth = 1.5; c.setLineDash([]);
     c.beginPath(); c.moveTo(projX,projY); c.lineTo(screenX,screenT); c.stroke();
     c.beginPath(); c.moveTo(projX,projY); c.lineTo(screenX,screenB); c.stroke();
 
-    const minX  = projX + S.throwDistMin * scl;
+    // Min throw
+    const minX = projX - S.throwDistMin * scl;
     const minFrac = S.throwDistMin / S.throwDistMax;
     const minHH = beamH * minFrac / 2;
-    const minImgCY = projY - off.v * scl * minFrac;
+    const minCY = floorY - (projLensH + off.v * minFrac) * scl;
     c.strokeStyle = 'rgba(255,107,0,0.9)'; c.lineWidth = 2; c.setLineDash([5,4]);
-    c.beginPath(); c.moveTo(minX, minImgCY-minHH); c.lineTo(minX, minImgCY+minHH); c.stroke();
+    c.beginPath(); c.moveTo(minX, minCY-minHH); c.lineTo(minX, minCY+minHH); c.stroke();
     c.setLineDash([]);
     c.font='9px "Share Tech Mono"'; c.fillStyle='rgba(255,107,0,0.8)'; c.textAlign='center';
-    c.fillText('MIN', minX, minImgCY-minHH-5); c.textAlign='left';
+    c.fillText('MIN', minX, minCY-minHH-5); c.textAlign='left';
 
+    // Screen surface
     const scrGrad = c.createLinearGradient(screenX,screenT,screenX,screenB);
-    scrGrad.addColorStop(0,'rgba(200,212,224,0.04)');
-    scrGrad.addColorStop(0.5,'rgba(200,212,224,0.18)');
-    scrGrad.addColorStop(1,'rgba(200,212,224,0.04)');
-    c.fillStyle = scrGrad;
-    c.fillRect(screenX, screenT, 8, beamH);
+    scrGrad.addColorStop(0,'rgba(200,212,224,0.04)'); scrGrad.addColorStop(0.5,'rgba(200,212,224,0.18)'); scrGrad.addColorStop(1,'rgba(200,212,224,0.04)');
+    c.fillStyle = scrGrad; c.fillRect(screenX, screenT, 8, beamH);
     c.strokeStyle = 'rgba(200,212,224,0.9)'; c.lineWidth = 2.5;
     c.beginPath(); c.moveTo(screenX,screenT); c.lineTo(screenX,screenB); c.stroke();
-
     c.font='10px "Share Tech Mono"'; c.fillStyle='rgba(200,212,224,0.6)';
-    c.fillText(fd(S.screenHeight), screenX+14, imgCentreY+4);
+    c.fillText(fd(S.screenHeight), screenX+14, scrCentreY+4);
 
     drawProjBodyH(c, projX, projY, inv);
 
-    const dimY  = screenB + (inv ? -(beamH + 90) : 55);
-    const dimY2 = screenB + (inv ? -(beamH + 70) : 35);
-    dimLineH(c, projX, screenX, dimY,  fd(S.throwDistMax), '#00e5ff', false);
+    // Dimension lines
+    const dimY  = Math.max(screenB, floorY) + 28;
+    const dimY2 = dimY + 20;
+    dimLineH(c, projX, screenX, dimY,  fd(S.projDistFromScreen), '#00e5ff', false);
     dimLineH(c, projX, minX,    dimY2, fd(S.throwDistMin), '#ff6b00', true);
 
-    // Offset label in corner
-    const offLabel = S.offsetV !== 0 || S.offsetH !== 0
-      ? ` · V:${S.offsetV.toFixed(0)}% H:${S.offsetH.toFixed(0)}%` : '';
+    // Vertical dim: lens height above floor
+    dimLineV(c, projY, floorY, projX + 30, fd(projLensH));
+    // Room height dim (right side)
+    dimLineV(c, ceilY, floorY, W - PAD + 20, fd(rh));
+
+    const offLabel = S.offsetV !== 0 || S.offsetH !== 0 ? ` · V:${S.offsetV.toFixed(0)}% H:${S.offsetH.toFixed(0)}%` : '';
     c.font='10px "Share Tech Mono"'; c.fillStyle='rgba(0,229,255,0.5)';
     c.fillText('SIDE ELEVATION — '+(inv?'CEILING INVERTED':'FLOOR / TABLE')+offLabel, 10, 18);
   }
+}
+
+// ─── ROOM ENVELOPE HELPERS ────────────────────────────────────
+function _drawRoomEnvelopeH(c, W, PAD, floorY, ceilY, wallX) {
+  const roomRight = W - PAD + 10;
+  // Floor fill
+  c.fillStyle = 'rgba(40,50,60,0.5)';
+  c.fillRect(PAD, floorY, roomRight - PAD, 6);
+  // Ceiling fill
+  c.fillStyle = 'rgba(30,37,48,0.8)';
+  c.fillRect(PAD, ceilY - 5, roomRight - PAD, 5);
+  // Floor line
+  c.strokeStyle = 'rgba(90,106,122,0.6)'; c.lineWidth = 2; c.setLineDash([]);
+  c.beginPath(); c.moveTo(PAD, floorY); c.lineTo(roomRight, floorY); c.stroke();
+  // Ceiling line
+  c.strokeStyle = 'rgba(90,106,122,0.4)'; c.lineWidth = 1.5;
+  c.beginPath(); c.moveTo(PAD, ceilY); c.lineTo(roomRight, ceilY); c.stroke();
+  // Screen wall (vertical left line)
+  c.strokeStyle = 'rgba(90,106,122,0.35)'; c.lineWidth = 1;
+  c.beginPath(); c.moveTo(wallX, floorY + 4); c.lineTo(wallX, ceilY - 2); c.stroke();
+  // Floor label
+  c.font='9px "Share Tech Mono"'; c.fillStyle='rgba(90,106,122,0.5)'; c.textAlign='right';
+  c.fillText('FLOOR', roomRight - 4, floorY - 3);
+  c.fillText('CEILING', roomRight - 4, ceilY + 10);
+  c.textAlign='left';
+}
+
+function _drawRoomEnvelopeV(c, W, PAD, floorY, ceilY) {
+  // Floor line
+  c.strokeStyle = 'rgba(90,106,122,0.6)'; c.lineWidth = 2;
+  c.beginPath(); c.moveTo(PAD, floorY); c.lineTo(W-PAD, floorY); c.stroke();
+  // Floor fill
+  c.fillStyle = 'rgba(40,50,60,0.5)'; c.fillRect(PAD, floorY, W-PAD*2, 5);
+  // Ceiling line
+  c.strokeStyle = 'rgba(90,106,122,0.4)'; c.lineWidth = 1.5;
+  c.beginPath(); c.moveTo(PAD, ceilY); c.lineTo(W-PAD, ceilY); c.stroke();
+  c.fillStyle = 'rgba(30,37,48,0.8)'; c.fillRect(PAD, ceilY-5, W-PAD*2, 5);
+  // Labels
+  c.font='9px "Share Tech Mono"'; c.fillStyle='rgba(90,106,122,0.5)'; c.textAlign='right';
+  c.fillText('FLOOR', W-PAD-4, floorY - 3);
+  c.fillText('CEILING', W-PAD-4, ceilY + 10);
+  c.textAlign='left';
 }
 
 // ─── TOP VIEW ────────────────────────────────────────────────
@@ -1938,7 +2271,11 @@ document.getElementById('targetWidth').addEventListener('input', () => {
 updateOffsetUnitLabels();
 updateOffsetDial();
 updatePresetChips();
-// Initial resize after page fully lays out
+updateProjHeightLabel();
+// Init room slider midpoint
+document.getElementById('projDistSlider').value = 50;
+onRoomChange();  // reads all room fields, draws preview
+// Initial canvas resize after page fully lays out
 requestAnimationFrame(() => { _doResize(); });
 </script>
 </body>
