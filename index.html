@@ -7,125 +7,275 @@
 <style>
   @import url('https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Barlow+Condensed:wght@300;400;600;700;900&family=Barlow:wght@300;400;500&display=swap');
 
+  /* ─── TOKENS ─────────────────────────────────────────────── */
   :root {
-    --bg: #0a0c0f;
-    --surface: #111418;
-    --border: #1e2530;
-    --accent: #00e5ff;
-    --accent2: #ff6b00;
-    --accent3: #7fff00;
-    --text: #c8d4e0;
-    --text-dim: #5a6a7a;
+    --bg:          #0a0c0f;
+    --surface:     #111418;
+    --surface2:    #151b22;
+    --border:      #1e2530;
+    --border-hi:   #2a3544;
+    --accent:      #00e5ff;
+    --accent2:     #ff6b00;
+    --accent3:     #7fff00;
+    --text:        #c8d4e0;
+    --text-dim:    #5a6a7a;
     --text-bright: #eaf2ff;
-    --grid: rgba(0,229,255,0.04);
+    --grid:        rgba(0,229,255,0.04);
+    --glow:        rgba(0,229,255,0.10);
+    --glow2:       rgba(255,107,0,0.10);
+    --glow3:       rgba(127,255,0,0.10);
   }
-  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  /* ─── RESET ──────────────────────────────────────────────── */
+  *, *::before, *::after { box-sizing:border-box; margin:0; padding:0; }
   body {
-    background: var(--bg); color: var(--text);
-    font-family: 'Barlow', sans-serif; font-size: 14px;
-    min-height: 100vh; overflow-x: hidden;
+    background:var(--bg); color:var(--text);
+    font-family:'Barlow',sans-serif; font-size:14px;
+    min-height:100vh; overflow-x:hidden;
   }
   body::before {
-    content: ''; position: fixed; inset: 0;
-    background: repeating-linear-gradient(0deg,transparent,transparent 2px,rgba(0,0,0,0.03) 2px,rgba(0,0,0,0.03) 4px);
-    pointer-events: none; z-index: 9999;
+    content:''; position:fixed; inset:0; pointer-events:none; z-index:9999;
+    background:repeating-linear-gradient(0deg,transparent,transparent 2px,rgba(0,0,0,0.03) 2px,rgba(0,0,0,0.03) 4px);
   }
+
+  /* ─── HEADER / LAYOUT ────────────────────────────────────── */
   header {
-    display: flex; align-items: center; justify-content: space-between;
-    padding: 14px 28px; border-bottom: 1px solid var(--border);
-    background: var(--surface);
+    display:flex; align-items:center; justify-content:space-between;
+    padding:14px 28px; border-bottom:1px solid var(--border);
+    background:var(--surface);
   }
   .logo { font-family:'Barlow Condensed',sans-serif; font-weight:900; font-size:22px; letter-spacing:0.12em; color:var(--text-bright); text-transform:uppercase; }
-  .logo span { color: var(--accent); }
+  .logo span { color:var(--accent); }
   .header-badge { font-family:'Share Tech Mono',monospace; font-size:10px; color:var(--accent); border:1px solid var(--accent); padding:3px 8px; letter-spacing:0.1em; opacity:0.7; }
 
-  .layout {
-    display: grid;
-    grid-template-columns: 320px 1fr;
-    grid-template-rows: 1fr auto;
-    height: calc(100vh - 53px);
-  }
+  .layout { display:grid; grid-template-columns:320px 1fr; grid-template-rows:1fr auto; height:calc(100vh - 53px); }
 
-  .sidebar {
-    background: var(--surface); border-right: 1px solid var(--border);
-    overflow-y: auto; display: flex; flex-direction: column;
-    grid-row: 1 / 3;
-  }
-  .sidebar::-webkit-scrollbar { width: 4px; }
-  .sidebar::-webkit-scrollbar-thumb { background: var(--border); }
+  /* ─── SIDEBAR ────────────────────────────────────────────── */
+  .sidebar { background:var(--surface); border-right:1px solid var(--border); overflow-y:auto; display:flex; flex-direction:column; grid-column:1; grid-row:1/3; }
+  .sidebar::-webkit-scrollbar { width:4px; }
+  .sidebar::-webkit-scrollbar-thumb { background:var(--border-hi); border-radius:2px; }
 
-  .section { padding: 18px 20px; border-bottom: 1px solid var(--border); }
-  .section-label {
-    font-family:'Share Tech Mono',monospace; font-size:9px; letter-spacing:0.2em;
-    color:var(--accent); text-transform:uppercase; margin-bottom:14px;
-    display:flex; align-items:center; gap:8px;
-  }
+  /* canvas-wrap fills the top-right cell */
+  .canvas-wrap { grid-column:2; grid-row:1; position:relative; background:var(--bg); overflow:hidden; }
+
+  /* info-bar sits in the bottom-right cell */
+  .info-bar { grid-column:2; grid-row:2; }
+
+  .section { padding:18px 20px; border-bottom:1px solid var(--border); }
+  .section-label { font-family:'Share Tech Mono',monospace; font-size:9px; letter-spacing:0.2em; color:var(--accent); text-transform:uppercase; margin-bottom:14px; display:flex; align-items:center; gap:8px; }
   .section-label::after { content:''; flex:1; height:1px; background:linear-gradient(to right,var(--accent),transparent); opacity:0.3; }
 
-  .field { margin-bottom: 12px; }
+  .field { margin-bottom:12px; }
   .field label { display:block; font-size:11px; font-weight:500; color:var(--text-dim); text-transform:uppercase; letter-spacing:0.08em; margin-bottom:5px; }
   .input-row { display:flex; gap:6px; align-items:center; }
-
-  input[type="number"], input[type="text"], select {
-    background: var(--bg); border: 1px solid var(--border);
-    color: var(--text-bright); font-family:'Share Tech Mono',monospace;
-    font-size:14px; padding:8px 10px; width:100%; outline:none; transition:border-color 0.2s; appearance:none;
-  }
-  input:focus, select:focus { border-color:var(--accent); box-shadow:0 0 0 2px rgba(0,229,255,0.08); }
-  select { cursor:pointer; }
-  select option { background: var(--surface); }
   .unit { font-family:'Share Tech Mono',monospace; font-size:10px; color:var(--text-dim); white-space:nowrap; }
 
-  /* ── Unit pill selector ── */
-  .unit-pills { display:flex; gap:0; border:1px solid var(--border); overflow:hidden; }
-  .unit-pill {
-    flex:1; background:var(--bg); border:none; color:var(--text-dim);
-    font-family:'Share Tech Mono',monospace; font-size:11px; letter-spacing:0.08em;
-    padding:7px 0; cursor:pointer; transition:all 0.15s; text-align:center;
-    border-right:1px solid var(--border);
+  /* ─── INPUTS ─────────────────────────────────────────────── */
+  input[type="number"], input[type="text"], select {
+    background:var(--bg); border:1px solid var(--border);
+    color:var(--text-bright); font-family:'Share Tech Mono',monospace;
+    font-size:14px; padding:8px 10px; width:100%; outline:none;
+    transition:border-color 0.2s, box-shadow 0.2s; appearance:none;
   }
-  .unit-pill:last-child { border-right:none; }
-  .unit-pill:hover { color:var(--text); background:rgba(0,229,255,0.04); }
-  .unit-pill.active { background:rgba(0,229,255,0.12); color:var(--accent); }
-
-  /* ── Live search spinner ── */
-  .search-spinner { display:none; position:absolute; right:10px; top:50%; transform:translateY(-50%); width:14px; height:14px; border:2px solid var(--border); border-top-color:var(--accent); border-radius:50%; animation:spin 0.6s linear infinite; }
-  @keyframes spin { to { transform:translateY(-50%) rotate(360deg); } }
-  .search-spinner.active { display:block; }
-  .search-status { font-family:'Share Tech Mono',monospace; font-size:9px; color:var(--text-dim); padding:5px 8px; }
-
+  input[type="number"]:focus, input[type="text"]:focus, select:focus {
+    border-color:var(--accent);
+    box-shadow:0 0 0 2px rgba(0,229,255,0.08), inset 0 0 8px rgba(0,229,255,0.03);
+  }
+  select {
+    cursor:pointer;
+    background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%235a6a7a'/%3E%3C/svg%3E");
+    background-repeat:no-repeat; background-position:right 10px center; padding-right:28px;
+  }
+  select option { background:var(--surface); }
   .ratio-inputs { display:flex; gap:4px; align-items:center; }
   .ratio-sep { font-family:'Share Tech Mono',monospace; font-size:18px; color:var(--text-dim); padding:0 2px; }
 
+  /* ─── CALCULATE BUTTON ───────────────────────────────────── */
+  .calc-btn {
+    width:100%; background:var(--accent); border:none; color:var(--bg);
+    font-family:'Barlow Condensed',sans-serif; font-weight:700; font-size:14px;
+    letter-spacing:0.15em; text-transform:uppercase; padding:13px; cursor:pointer;
+    transition:opacity 0.2s, transform 0.1s, box-shadow 0.2s; margin-top:2px;
+    box-shadow:0 0 16px rgba(0,229,255,0.2);
+  }
+  .calc-btn:hover { opacity:0.88; box-shadow:0 0 24px rgba(0,229,255,0.4); }
+  .calc-btn:active { transform:scale(0.98); }
+
+  /* ─── PILL TOGGLES ───────────────────────────────────────── */
+  .unit-pills, .orient-pills, .offset-mode-pills {
+    display:flex; border:1px solid var(--border); overflow:hidden;
+  }
+  .unit-pill, .orient-pill, .offset-mode-pill {
+    flex:1; background:var(--bg); border:none; color:var(--text-dim);
+    font-family:'Share Tech Mono',monospace; font-size:11px; letter-spacing:0.06em;
+    padding:8px 0; cursor:pointer; transition:all 0.15s; text-align:center;
+    border-right:1px solid var(--border);
+  }
+  .unit-pill:last-child, .orient-pill:last-child, .offset-mode-pill:last-child { border-right:none; }
+  .unit-pill:hover        { color:var(--text); background:var(--glow); }
+  .unit-pill.active       { background:var(--glow); color:var(--accent);  box-shadow:inset 0 -2px 0 var(--accent); }
+  .orient-pill:hover      { color:var(--text); background:var(--glow3); }
+  .orient-pill.active     { background:var(--glow3); color:var(--accent3); box-shadow:inset 0 -2px 0 var(--accent3); }
+  .offset-mode-pill:hover { color:var(--text); background:var(--glow2); }
+  .offset-mode-pill.active{ background:var(--glow2); color:var(--accent2); box-shadow:inset 0 -2px 0 var(--accent2); }
+
+  /* ─── MOUNT BUTTONS ──────────────────────────────────────── */
   .mount-grid { display:grid; grid-template-columns:1fr 1fr 1fr; gap:6px; }
   .mount-btn {
     background:var(--bg); border:1px solid var(--border); color:var(--text-dim);
     font-family:'Barlow Condensed',sans-serif; font-size:11px; font-weight:600;
     letter-spacing:0.06em; text-transform:uppercase; padding:10px 6px;
-    cursor:pointer; display:flex; flex-direction:column; align-items:center; gap:5px; transition:all 0.18s;
+    cursor:pointer; display:flex; flex-direction:column; align-items:center; gap:5px;
+    transition:all 0.18s;
   }
   .mount-btn svg { width:22px; height:22px; }
-  .mount-btn:hover { border-color:var(--accent); color:var(--text); }
-  .mount-btn.active { border-color:var(--accent); background:rgba(0,229,255,0.06); color:var(--accent); }
+  .mount-btn:hover { border-color:var(--accent); color:var(--text); background:var(--glow); }
+  .mount-btn.active { border-color:var(--accent); background:rgba(0,229,255,0.08); color:var(--accent); box-shadow:0 0 10px rgba(0,229,255,0.15), inset 0 0 8px rgba(0,229,255,0.04); }
 
+  /* ─── PRESET CHIPS ───────────────────────────────────────── */
+  .preset-chips { display:flex; flex-wrap:wrap; gap:5px; }
+  .chip { font-family:'Share Tech Mono',monospace; font-size:10px; padding:4px 9px; border:1px solid var(--border); background:var(--bg); color:var(--text-dim); cursor:pointer; transition:all 0.15s; }
+  .chip:hover  { border-color:var(--accent2); color:var(--accent2); background:var(--glow2); }
+  .chip.active { border-color:var(--accent2); color:var(--accent2); background:var(--glow2); box-shadow:0 0 6px rgba(255,107,0,0.2); }
+
+  /* ─── SPLIT BUTTONS ──────────────────────────────────────── */
+  .split-sel { display:flex; gap:4px; flex-wrap:wrap; margin-top:5px; }
+  .split-btn { flex:1; min-width:60px; background:var(--bg); border:1px solid var(--border); color:var(--text-dim); font-family:'Share Tech Mono',monospace; font-size:9px; letter-spacing:0.06em; padding:7px 4px; cursor:pointer; transition:all 0.15s; text-align:center; }
+  .split-btn:hover  { border-color:var(--accent3); color:var(--accent3); background:var(--glow3); }
+  .split-btn.active { background:var(--glow3); border-color:var(--accent3); color:var(--accent3); box-shadow:0 0 8px rgba(127,255,0,0.15); }
+
+  /* ─── OFFSET SECTION ─────────────────────────────────────── */
+  .offset-grid { display:grid; grid-template-columns:1fr 1fr; gap:8px; }
+  .offset-presets { display:flex; flex-wrap:wrap; gap:4px; margin-top:6px; }
+  .offset-chip { font-family:'Share Tech Mono',monospace; font-size:9px; padding:4px 8px; border:1px solid var(--border); background:var(--bg); color:var(--text-dim); cursor:pointer; transition:all 0.14s; white-space:nowrap; line-height:1.4; }
+  .offset-chip:hover  { border-color:var(--accent2); color:var(--accent2); background:var(--glow2); }
+  .offset-chip.active { border-color:var(--accent2); color:var(--accent2); background:var(--glow2); box-shadow:0 0 6px rgba(255,107,0,0.2); }
+  .offset-val-row { display:flex; gap:4px; align-items:center; }
+  .offset-val-row input { flex:1; font-size:12px; padding:6px 8px; }
+  .offset-val-row .unit { font-size:9px; }
+
+  /* ─── UST BUTTON ─────────────────────────────────────────── */
+  .ust-btn-wrap { margin-bottom:12px; }
+  .ust-btn {
+    width:100%; display:flex; align-items:center; gap:10px;
+    background:var(--bg); border:1px solid rgba(127,255,0,0.35);
+    color:var(--text); font-family:'Barlow Condensed',sans-serif;
+    font-size:13px; font-weight:700; letter-spacing:0.1em; text-transform:uppercase;
+    padding:11px 14px; cursor:pointer; transition:all 0.2s; text-align:left;
+    position:relative; overflow:hidden;
+  }
+  .ust-btn::before {
+    content:''; position:absolute; inset:0;
+    background:linear-gradient(90deg,rgba(127,255,0,0.06) 0%,transparent 70%);
+    pointer-events:none;
+  }
+  .ust-btn:hover {
+    border-color:var(--accent3); background:rgba(127,255,0,0.06);
+    box-shadow:0 0 14px rgba(127,255,0,0.2);
+  }
+  .ust-btn.active {
+    border-color:var(--accent3); background:rgba(127,255,0,0.10);
+    box-shadow:0 0 18px rgba(127,255,0,0.25), inset 0 0 10px rgba(127,255,0,0.05);
+  }
+  .ust-icon {
+    width:32px; height:32px; flex-shrink:0;
+    border:1px solid rgba(127,255,0,0.4); display:flex; align-items:center; justify-content:center;
+    background:rgba(127,255,0,0.06);
+  }
+  .ust-icon svg { width:20px; height:20px; stroke:var(--accent3); }
+  .ust-label { flex:1; }
+  .ust-label-top { color:var(--accent3); font-size:13px; letter-spacing:0.12em; }
+  .ust-label-sub { font-size:9px; font-weight:400; color:var(--text-dim); font-family:'Share Tech Mono',monospace; letter-spacing:0.06em; margin-top:1px; }
+  .ust-badge {
+    font-family:'Share Tech Mono',monospace; font-size:9px;
+    background:rgba(127,255,0,0.12); border:1px solid rgba(127,255,0,0.3);
+    color:var(--accent3); padding:2px 6px; letter-spacing:0.06em; white-space:nowrap;
+  }
+
+  /* UST sub-preset chips */
+  .ust-subpresets { display:none; flex-wrap:wrap; gap:4px; margin-top:8px; }
+  .ust-subpresets.open { display:flex; }
+  .ust-sub-chip {
+    font-family:'Share Tech Mono',monospace; font-size:9px; padding:4px 8px;
+    border:1px solid rgba(127,255,0,0.25); background:var(--bg); color:var(--text-dim);
+    cursor:pointer; transition:all 0.14s; white-space:nowrap; line-height:1.4;
+  }
+  .ust-sub-chip:hover  { border-color:var(--accent3); color:var(--accent3); background:var(--glow3); }
+  .ust-sub-chip.active { border-color:var(--accent3); color:var(--accent3); background:var(--glow3); box-shadow:0 0 6px rgba(127,255,0,0.2); }
+
+  /* UST info panel */
+  .ust-info {
+    display:none; margin-top:8px;
+    background:rgba(127,255,0,0.04); border:1px solid rgba(127,255,0,0.15);
+    padding:10px 12px;
+  }
+  .ust-info.open { display:block; }
+  .ust-info-row { display:flex; justify-content:space-between; align-items:center; padding:3px 0; border-bottom:1px solid rgba(127,255,0,0.08); font-size:10px; }
+  .ust-info-row:last-child { border-bottom:none; }
+  .ust-info-key { color:var(--text-dim); font-family:'Share Tech Mono',monospace; font-size:9px; letter-spacing:0.06em; }
+  .ust-info-val { color:var(--accent3); font-family:'Share Tech Mono',monospace; font-size:10px; }
+
+  /* ─── OFFSET DIAL ────────────────────────────────────────── */
+  .offset-dial {
+    position:relative; width:80px; height:80px;
+    border:1px solid var(--border-hi); border-radius:50%;
+    background:radial-gradient(circle at 50% 50%,#151b24 55%,#0d1118 100%);
+    cursor:crosshair; flex-shrink:0;
+    box-shadow:0 0 0 4px rgba(0,229,255,0.04), inset 0 0 12px rgba(0,0,0,0.5);
+    transition:box-shadow 0.2s;
+  }
+  .offset-dial:hover { box-shadow:0 0 0 4px rgba(0,229,255,0.10), inset 0 0 12px rgba(0,0,0,0.5); }
+  .offset-dial::before { content:''; position:absolute; inset:6px; border-radius:50%; border:1px solid rgba(0,229,255,0.1); }
+  .offset-dial::after  { content:''; position:absolute; inset:14px; border-radius:50%; border:1px dashed rgba(0,229,255,0.06); }
+  .offset-dial .cross-h, .offset-dial .cross-v { position:absolute; background:rgba(0,229,255,0.15); pointer-events:none; }
+  .offset-dial .cross-h { top:50%; left:12%; width:76%; height:1px; transform:translateY(-50%); }
+  .offset-dial .cross-v { left:50%; top:12%; height:76%; width:1px; transform:translateX(-50%); }
+  .offset-dot { position:absolute; width:10px; height:10px; border-radius:50%; background:var(--accent); box-shadow:0 0 8px var(--accent),0 0 2px rgba(255,255,255,0.8); transform:translate(-50%,-50%); pointer-events:none; transition:left 0.08s,top 0.08s; }
+  .offset-dial-label { font-family:'Share Tech Mono',monospace; font-size:8px; color:var(--text-dim); letter-spacing:0.06em; text-align:center; }
+
+  /* ─── RANGE SLIDER ───────────────────────────────────────── */
+  .proj-pos-wrap { margin-top:10px; }
+  .proj-pos-wrap label { display:block; font-size:11px; font-weight:500; color:var(--text-dim); text-transform:uppercase; letter-spacing:0.08em; margin-bottom:8px; }
+  .proj-pos-slider {
+    -webkit-appearance:none; appearance:none;
+    width:100%; height:4px; outline:none; cursor:pointer; border-radius:0;
+    background:linear-gradient(to right,var(--accent) 0%,var(--accent) 50%,var(--border-hi) 50%,var(--border-hi) 100%);
+  }
+  .proj-pos-slider::-webkit-slider-thumb { -webkit-appearance:none; width:16px; height:16px; background:var(--accent2); border:2px solid var(--bg); border-radius:0; box-shadow:0 0 8px rgba(255,107,0,0.5); cursor:grab; transition:box-shadow 0.15s,transform 0.15s; }
+  .proj-pos-slider::-webkit-slider-thumb:active { cursor:grabbing; transform:scale(1.25); box-shadow:0 0 14px rgba(255,107,0,0.7); }
+  .proj-pos-slider::-moz-range-thumb { width:14px; height:14px; background:var(--accent2); border:2px solid var(--bg); border-radius:0; box-shadow:0 0 8px rgba(255,107,0,0.5); cursor:grab; }
+  .proj-pos-slider::-moz-range-track { height:4px; background:var(--border-hi); }
+  .proj-pos-val { font-family:'Share Tech Mono',monospace; font-size:11px; color:var(--accent2); margin-top:6px; letter-spacing:0.05em; }
+
+  /* ─── ROOM SECTION ───────────────────────────────────────── */
+  .room-grid { display:grid; grid-template-columns:1fr 1fr; gap:8px; }
+  .room-preview { width:100%; aspect-ratio:2.2/1; margin-top:10px; background:var(--bg); border:1px solid var(--border); overflow:hidden; position:relative; }
+  .room-preview canvas { position:absolute; inset:0; width:100%; height:100%; display:block; }
+  .room-dim-badge { font-family:'Share Tech Mono',monospace; font-size:9px; color:var(--text-dim); text-align:center; padding:4px 0 2px; letter-spacing:0.06em; }
+
+  /* ─── RESULTS ────────────────────────────────────────────── */
   .results-grid { display:grid; grid-template-columns:1fr 1fr; gap:7px; }
-  .result-card { background:var(--bg); border:1px solid var(--border); padding:10px; }
+  .result-card { background:var(--bg); border:1px solid var(--border); padding:10px; transition:border-color 0.2s; }
+  .result-card:hover { border-color:var(--border-hi); }
   .result-card .r-label { font-size:9px; color:var(--text-dim); text-transform:uppercase; letter-spacing:0.1em; margin-bottom:3px; }
   .result-card .r-value { font-family:'Share Tech Mono',monospace; font-size:17px; color:var(--accent); line-height:1; }
-  .result-card .r-unit { font-size:10px; color:var(--text-dim); margin-top:2px; }
-  .result-card.hi { border-color:rgba(0,229,255,0.35); background:rgba(0,229,255,0.04); }
+  .result-card .r-unit  { font-size:10px; color:var(--text-dim); margin-top:2px; }
+  .result-card.hi { border-color:rgba(0,229,255,0.3); background:rgba(0,229,255,0.03); }
   .result-card.hi .r-value { color:var(--text-bright); font-size:21px; }
 
-  .preset-chips { display:flex; flex-wrap:wrap; gap:5px; }
-  .chip {
-    font-family:'Share Tech Mono',monospace; font-size:10px; padding:4px 9px;
-    border:1px solid var(--border); background:var(--bg); color:var(--text-dim);
-    cursor:pointer; transition:all 0.15s;
-  }
-  .chip:hover, .chip.active { border-color:var(--accent2); color:var(--accent2); background:rgba(255,107,0,0.06); }
+  /* ─── LUX BAR ────────────────────────────────────────────── */
+  .lux-bar-wrap { margin-top:10px; background:var(--bg); border:1px solid var(--border); padding:10px 11px; }
+  .lux-label { font-size:9px; color:var(--text-dim); text-transform:uppercase; letter-spacing:0.1em; margin-bottom:6px; }
+  .lux-bar-bg { height:6px; background:var(--border-hi); overflow:hidden; }
+  .lux-bar-fill { height:100%; background:linear-gradient(90deg,#00e5ff,#7fff00,#ff6b00,#ff2020); transition:width 0.4s; }
+  .lux-val { font-family:'Share Tech Mono',monospace; font-size:12px; color:var(--text-bright); margin-top:5px; }
+  .lux-desc { font-size:10px; color:var(--text-dim); margin-top:2px; }
 
+  /* ─── DB SEARCH ──────────────────────────────────────────── */
   .search-wrap { position:relative; }
-  .search-wrap input { padding-right:72px; }
+  .search-spinner { display:none; position:absolute; right:10px; top:50%; transform:translateY(-50%); width:14px; height:14px; border:2px solid var(--border-hi); border-top-color:var(--accent); border-radius:50%; animation:spin 0.6s linear infinite; }
+  @keyframes spin { to { transform:translateY(-50%) rotate(360deg); } }
+  .search-spinner.active { display:block; }
   .db-results { margin-top:7px; max-height:190px; overflow-y:auto; border:1px solid var(--border); display:none; }
   .db-results.open { display:block; }
   .db-result-item { padding:8px 11px; border-bottom:1px solid var(--border); cursor:pointer; transition:background 0.15s; font-size:12px; }
@@ -135,210 +285,65 @@
   .db-result-item .db-meta { font-size:10px; color:var(--text-dim); margin-top:2px; font-family:'Share Tech Mono',monospace; }
   .db-status { font-family:'Share Tech Mono',monospace; font-size:10px; color:var(--text-dim); padding:8px; text-align:center; }
 
-  .lux-bar-wrap { margin-top:10px; background:var(--bg); border:1px solid var(--border); padding:10px 11px; }
-  .lux-label { font-size:9px; color:var(--text-dim); text-transform:uppercase; letter-spacing:0.1em; margin-bottom:6px; }
-  .lux-bar-bg { height:6px; background:var(--border); overflow:hidden; }
-  .lux-bar-fill { height:100%; background:linear-gradient(90deg,#00e5ff,#7fff00,#ff6b00,#ff2020); transition:width 0.4s; }
-  .lux-val { font-family:'Share Tech Mono',monospace; font-size:12px; color:var(--text-bright); margin-top:5px; }
-  .lux-desc { font-size:10px; color:var(--text-dim); margin-top:2px; }
+  /* ─── TIP ────────────────────────────────────────────────── */
+  .tip { font-size:10px; color:var(--text-dim); line-height:1.5; margin-top:6px; padding:8px 10px; background:var(--bg); border-left:2px solid var(--border-hi); }
 
-  .calc-btn {
-    width:100%; background:var(--accent); border:none; color:var(--bg);
-    font-family:'Barlow Condensed',sans-serif; font-weight:700; font-size:14px;
-    letter-spacing:0.15em; text-transform:uppercase; padding:12px; cursor:pointer;
-    transition:opacity 0.2s, transform 0.1s; margin-top:2px;
-  }
-  .calc-btn:hover { opacity:0.9; }
-  .calc-btn:active { transform:scale(0.98); }
-  .tip { font-size:10px; color:var(--text-dim); line-height:1.5; margin-top:6px; padding:8px; background:var(--bg); border-left:2px solid var(--border); }
-
-  .canvas-wrap {
-    position:relative; background:var(--bg); overflow:hidden;
-  }
-  .canvas-wrap::before {
-    content:''; position:absolute; inset:0;
-    background-image:linear-gradient(var(--grid) 1px,transparent 1px),linear-gradient(90deg,var(--grid) 1px,transparent 1px);
-    background-size:40px 40px; pointer-events:none; z-index:0;
-  }
+  /* ─── CANVAS AREA ────────────────────────────────────────── */
+  .canvas-wrap::before { content:''; position:absolute; inset:0; pointer-events:none; z-index:0; background-image:linear-gradient(var(--grid) 1px,transparent 1px),linear-gradient(90deg,var(--grid) 1px,transparent 1px); background-size:40px 40px; }
   canvas { display:block; }
 
-  /* Split view — fills canvas-wrap absolutely */
-  .split-wrap {
-    position:absolute; inset:0;
-    display:grid;
-    grid-template-columns: 1fr 1fr;
-    grid-template-rows: 1fr;
-  }
-  .split-pane {
-    position:relative; overflow:hidden; min-width:0; min-height:0;
-    border-right:1px solid var(--border);
-  }
-  .split-pane:last-child { border-right:none; }
-  /* Canvas fills its pane via absolute positioning */
-  .split-pane canvas {
-    position:absolute; inset:0; width:100% !important; height:100% !important; display:block;
-  }
-  .split-label {
-    position:absolute; top:8px; left:10px; z-index:5;
-    font-family:'Share Tech Mono',monospace; font-size:9px;
-    color:var(--accent3); letter-spacing:0.15em; opacity:0.75;
-    pointer-events:none;
-  }
-    background:var(--surface); border-top:1px solid var(--border);
-    padding:9px 20px; display:flex; align-items:center; gap:24px;
-    font-family:'Share Tech Mono',monospace; font-size:11px; color:var(--text-dim);
-  }
-  .info-item { display:flex; align-items:center; gap:7px; }
-  .info-dot { width:6px; height:6px; border-radius:50%; background:var(--accent); }
-  .info-dot.orange { background:var(--accent2); }
-  .info-dot.green { background:var(--accent3); }
-  .info-val { color:var(--text-bright); }
-
+  /* ─── VIEW TABS ──────────────────────────────────────────── */
   .view-tabs { position:absolute; top:14px; right:14px; display:flex; gap:4px; z-index:10; }
-  .view-tab {
+  .view-tab { font-family:'Share Tech Mono',monospace; font-size:10px; letter-spacing:0.1em; padding:6px 14px; background:rgba(17,20,24,0.88); border:1px solid var(--border); color:var(--text-dim); cursor:pointer; transition:all 0.15s; backdrop-filter:blur(4px); }
+  .view-tab:hover  { border-color:var(--accent); color:var(--text); background:var(--glow); }
+  .view-tab.active { background:var(--accent); color:var(--bg); border-color:var(--accent); box-shadow:0 0 12px rgba(0,229,255,0.3); }
+
+  /* ─── PAUSE BUTTON ───────────────────────────────────────── */
+  .pause-btn {
+    position:absolute; top:14px; left:14px; z-index:20;
     font-family:'Share Tech Mono',monospace; font-size:10px; letter-spacing:0.1em;
-    padding:5px 12px; background:var(--surface); border:1px solid var(--border);
+    padding:6px 14px; background:rgba(17,20,24,0.88); border:1px solid var(--border);
     color:var(--text-dim); cursor:pointer; transition:all 0.15s;
+    backdrop-filter:blur(4px); display:none;
   }
-  .view-tab:hover { border-color:var(--accent); color:var(--text); }
-  .view-tab.active { background:var(--accent); color:var(--bg); border-color:var(--accent); }
-  .view-tab.split-active { background: rgba(127,255,0,0.18); color:var(--accent3); border-color:var(--accent3); }
+  .pause-btn:hover { border-color:var(--accent2); color:var(--accent2); background:var(--glow2); }
+  .pause-btn.paused { border-color:var(--accent); color:var(--accent); background:var(--glow); }
+  .pause-btn.visible { display:block; }
 
-  /* Split view container */
-  .split-wrap {
-    display:grid; width:100%; height:100%;
-    grid-template-columns: 1fr 1fr;
-    grid-template-rows: 1fr;
-  }
-  .split-wrap.vert { grid-template-columns: 1fr; grid-template-rows: 1fr 1fr; }
-  .split-pane {
-    position:relative; overflow:hidden;
-    border-right:1px solid var(--border);
-  }
-  .split-pane:last-child { border-right:none; }
-  .split-pane canvas { width:100%; height:100%; display:block; }
-  .split-label {
-    position:absolute; top:8px; left:10px; z-index:5;
-    font-family:'Share Tech Mono',monospace; font-size:9px;
-    color:var(--accent3); letter-spacing:0.15em; opacity:0.75;
-    pointer-events:none;
-  }
+  /* ─── SPLIT VIEW ─────────────────────────────────────────── */
+  .split-wrap { position:absolute; inset:0; display:grid; }
+  .split-pane { position:relative; overflow:hidden; min-width:0; min-height:0; }
+  .split-pane + .split-pane { border-left:1px solid var(--border); }
+  .split-pane canvas { position:absolute; inset:0; width:100% !important; height:100% !important; display:block; }
+  .split-label { position:absolute; top:8px; left:10px; z-index:5; font-family:'Share Tech Mono',monospace; font-size:9px; color:var(--accent3); letter-spacing:0.15em; opacity:0.75; pointer-events:none; }
 
-  .info-bar {
-  .legend {
-    position:absolute; bottom:14px; right:14px;
-    display:flex; flex-direction:column; gap:5px; z-index:10;
-  }
+  /* ─── INFO BAR ───────────────────────────────────────────── */
+  .info-bar { background:var(--surface); border-top:1px solid var(--border); padding:9px 20px; display:flex; align-items:center; gap:24px; font-family:'Share Tech Mono',monospace; font-size:11px; color:var(--text-dim); }
+  .info-item { display:flex; align-items:center; gap:7px; }
+  .info-dot  { width:6px; height:6px; border-radius:50%; background:var(--accent); flex-shrink:0; }
+  .info-dot.orange { background:var(--accent2); }
+  .info-dot.green  { background:var(--accent3); }
+  .info-val  { color:var(--text-bright); }
+
+  /* ─── COVERAGE LEGEND ────────────────────────────────────── */
+  .legend { position:absolute; bottom:14px; right:14px; display:flex; flex-direction:column; gap:5px; z-index:10; background:rgba(10,12,15,0.80); padding:8px 10px; border:1px solid var(--border); backdrop-filter:blur(4px); }
   .legend-item { display:flex; align-items:center; gap:6px; font-family:'Share Tech Mono',monospace; font-size:9px; color:var(--text-dim); }
-  .legend-swatch { width:12px; height:12px; border:1px solid rgba(255,255,255,0.15); flex-shrink:0; }
+  .legend-swatch { width:12px; height:12px; border:1px solid rgba(255,255,255,0.12); flex-shrink:0; }
 
-  /* Target screen orientation selector */
-  .orient-pills { display:flex; gap:0; border:1px solid var(--border); overflow:hidden; margin-bottom:8px; }
-  .orient-pill {
-    flex:1; background:var(--bg); border:none; color:var(--text-dim);
-    font-family:'Share Tech Mono',monospace; font-size:10px;
-    padding:6px 0; cursor:pointer; transition:all 0.15s; text-align:center;
-    border-right:1px solid var(--border);
-  }
-  .orient-pill:last-child { border-right:none; }
-  .orient-pill.active { background:rgba(127,255,0,0.1); color:var(--accent3); }
+  /* ─── AXIS HINT ──────────────────────────────────────────── */
+  .axis-hint { position:absolute; bottom:14px; left:14px; font-family:'Share Tech Mono',monospace; font-size:9px; color:var(--text-dim); display:flex; flex-direction:column; gap:3px; opacity:0.45; pointer-events:none; }
 
-  /* Split selector row */
-  .split-sel { display:flex; gap:4px; flex-wrap:wrap; margin-top:5px; }
-  .split-btn {
-    flex:1; min-width:70px; background:var(--bg); border:1px solid var(--border); color:var(--text-dim);
-    font-family:'Share Tech Mono',monospace; font-size:9px; letter-spacing:0.08em;
-    padding:6px 4px; cursor:pointer; transition:all 0.15s; text-align:center;
-  }
-  .split-btn:hover { border-color:var(--accent3); color:var(--accent3); }
-  .split-btn.active { background:rgba(127,255,0,0.08); border-color:var(--accent3); color:var(--accent3); }
-
-  /* ── Room dimensions ── */
-  .room-grid { display:grid; grid-template-columns:1fr 1fr; gap:8px; }
-  .room-preview {
-    position:relative; width:100%; aspect-ratio:2/1; margin-top:8px;
-    background:var(--bg); border:1px solid var(--border); overflow:hidden;
-  }
-  .room-preview canvas { width:100%; height:100%; display:block; }
-  .room-dim-badge {
-    font-family:'Share Tech Mono',monospace; font-size:8px; color:var(--text-dim);
-    text-align:center; padding:3px 0; letter-spacing:0.05em;
-  }
-  /* Draggable projector position slider */
-  .proj-pos-wrap { margin-top:6px; }
-  .proj-pos-wrap label { display:block; font-size:11px; color:var(--text-dim); text-transform:uppercase; letter-spacing:0.08em; margin-bottom:4px; }
-  .proj-pos-slider { width:100%; accent-color:var(--accent2); cursor:pointer; }
-  .proj-pos-val { font-family:'Share Tech Mono',monospace; font-size:10px; color:var(--accent2); margin-top:2px; }
-  .offset-grid { display:grid; grid-template-columns:1fr 1fr; gap:8px; }
-  .offset-dial-wrap { display:flex; flex-direction:column; align-items:center; gap:6px; }
-  .offset-dial {
-    position:relative; width:72px; height:72px;
-    border:1px solid var(--border); border-radius:50%;
-    background:radial-gradient(circle at center, #151b24 60%, #0d1118 100%);
-    cursor:pointer; flex-shrink:0;
-  }
-  .offset-dial::before {
-    content:''; position:absolute; inset:5px; border-radius:50%;
-    border:1px solid rgba(0,229,255,0.08);
-  }
-  /* crosshair lines */
-  .offset-dial .cross-h, .offset-dial .cross-v {
-    position:absolute; background:rgba(0,229,255,0.12); pointer-events:none;
-  }
-  .offset-dial .cross-h { top:50%; left:10%; width:80%; height:1px; transform:translateY(-50%); }
-  .offset-dial .cross-v { left:50%; top:10%; height:80%; width:1px; transform:translateX(-50%); }
-  .offset-dot {
-    position:absolute; width:10px; height:10px; border-radius:50%;
-    background:var(--accent); box-shadow:0 0 6px var(--accent);
-    transform:translate(-50%,-50%);
-    transition:left 0.1s, top 0.1s;
-    pointer-events:none;
-  }
-  .offset-dial-label { font-family:'Share Tech Mono',monospace; font-size:9px; color:var(--text-dim); letter-spacing:0.08em; text-transform:uppercase; }
-  .offset-val-row { display:flex; gap:4px; align-items:center; }
-  .offset-val-row input { flex:1; font-size:12px; padding:5px 7px; }
-  .offset-val-row .unit { font-size:9px; }
-
-  /* Preset offset chips */
-  .offset-presets { display:flex; flex-wrap:wrap; gap:4px; margin-top:6px; }
-  .offset-chip {
-    font-family:'Share Tech Mono',monospace; font-size:9px; padding:3px 7px;
-    border:1px solid var(--border); background:var(--bg); color:var(--text-dim);
-    cursor:pointer; transition:all 0.14s; white-space:nowrap;
-  }
-  .offset-chip:hover { border-color:var(--accent2); color:var(--accent2); background:rgba(255,107,0,0.05); }
-  .offset-chip.active { border-color:var(--accent2); color:var(--accent2); background:rgba(255,107,0,0.09); }
-
-  /* Offset mode toggle (% / distance) */
-  .offset-mode-pills { display:flex; gap:0; border:1px solid var(--border); overflow:hidden; margin-bottom:8px; }
-  .offset-mode-pill {
-    flex:1; background:var(--bg); border:none; color:var(--text-dim);
-    font-family:'Share Tech Mono',monospace; font-size:10px;
-    padding:5px 0; cursor:pointer; transition:all 0.14s; text-align:center;
-    border-right:1px solid var(--border);
-  }
-  .offset-mode-pill:last-child { border-right:none; }
-  .offset-mode-pill.active { background:rgba(255,107,0,0.1); color:var(--accent2); }
-
-  .axis-hint {
-    position:absolute; bottom:14px; left:14px;
-    font-family:'Share Tech Mono',monospace; font-size:9px; color:var(--text-dim);
-    display:flex; flex-direction:column; gap:3px; opacity:0.5;
-  }
-
-  .notif {
-    position:fixed; top:68px; right:18px;
-    background:var(--surface); border:1px solid var(--accent); color:var(--accent);
-    font-family:'Share Tech Mono',monospace; font-size:11px; padding:10px 15px;
-    z-index:1000; transform:translateX(130%); transition:transform 0.3s; max-width:280px;
-  }
-  .notif.show { transform:translateX(0); }
+  /* ─── NOTIFICATION ───────────────────────────────────────── */
+  .notif { position:fixed; top:68px; right:18px; background:var(--surface); border:1px solid var(--accent); color:var(--accent); font-family:'Share Tech Mono',monospace; font-size:11px; padding:10px 15px; z-index:1000; transform:translateX(130%); transition:transform 0.3s; max-width:280px; box-shadow:0 4px 20px rgba(0,0,0,0.5); }
+  .notif.show  { transform:translateX(0); }
   .notif.error { border-color:#ff4040; color:#ff4040; }
 
+  /* ─── RESPONSIVE ─────────────────────────────────────────── */
   @media (max-width:800px) {
     .layout { grid-template-columns:1fr; grid-template-rows:auto 1fr auto; }
-    .sidebar { grid-row:1; max-height:50vh; }
-    .canvas-wrap { min-height:300px; }
+    .sidebar     { grid-column:1; grid-row:1; max-height:50vh; }
+    .canvas-wrap { grid-column:1; grid-row:2; min-height:300px; }
+    .info-bar    { grid-column:1; grid-row:3; }
   }
 </style>
 </head>
@@ -346,7 +351,7 @@
 
 <header>
   <div class="logo">Throw<span>CAD</span> — Projector Visualiser</div>
-  <div class="header-badge">v2.7 // ROOM CONTEXT</div>
+  <div class="header-badge">v3.1 // CENTRED VIEWS + PAUSE</div>
 </header>
 
 <div class="layout">
@@ -400,6 +405,72 @@
 
     <div class="section">
       <div class="section-label">Lens Offset / Shift</div>
+
+      <!-- UST QUICK-SET BUTTON -->
+      <div class="ust-btn-wrap">
+        <button class="ust-btn" id="ustBtn" onclick="toggleUST()">
+          <div class="ust-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke-width="1.5">
+              <!-- projector body flat on surface -->
+              <rect x="2" y="14" width="10" height="5" rx="1"/>
+              <!-- mirror angled -->
+              <line x1="12" y1="14" x2="18" y2="8"/>
+              <!-- beam bouncing up to screen -->
+              <polyline points="18,8 22,8"/>
+              <line x1="18" y1="8" x2="18" y2="2"/>
+              <!-- screen face -->
+              <line x1="15" y1="2" x2="22" y2="2" stroke-width="2.5"/>
+            </svg>
+          </div>
+          <div class="ust-label">
+            <div class="ust-label-top">UST Mode</div>
+            <div class="ust-label-sub">Ultra-Short Throw / Mirror bounce</div>
+          </div>
+          <div class="ust-badge" id="ustBadge">OFF</div>
+        </button>
+
+        <!-- UST sub-presets (shown when UST is active) -->
+        <div class="ust-subpresets" id="ustSubpresets">
+          <div class="ust-sub-chip active" data-v="115" data-tr-min="0.19" data-tr-max="0.25" onclick="applyUSTPreset(this)">
+            115% V<br><span style="opacity:0.5;font-size:8px">Samsung LSP9T / Hisense</span>
+          </div>
+          <div class="ust-sub-chip" data-v="118" data-tr-min="0.21" data-tr-max="0.24" onclick="applyUSTPreset(this)">
+            118% V<br><span style="opacity:0.5;font-size:8px">LG CineBeam HU915Q</span>
+          </div>
+          <div class="ust-sub-chip" data-v="120" data-tr-min="0.22" data-tr-max="0.25" onclick="applyUSTPreset(this)">
+            120% V<br><span style="opacity:0.5;font-size:8px">Sony VPL-XW5000ES UST</span>
+          </div>
+          <div class="ust-sub-chip" data-v="117" data-tr-min="0.19" data-tr-max="0.21" onclick="applyUSTPreset(this)">
+            117% V<br><span style="opacity:0.5;font-size:8px">Epson EH-LS800</span>
+          </div>
+          <div class="ust-sub-chip" data-v="116" data-tr-min="0.23" data-tr-max="0.25" onclick="applyUSTPreset(this)">
+            116% V<br><span style="opacity:0.5;font-size:8px">BenQ V7050i / V6050</span>
+          </div>
+          <div class="ust-sub-chip" data-v="115" data-tr-min="0.25" data-tr-max="0.31" onclick="applyUSTPreset(this)">
+            115% V<br><span style="opacity:0.5;font-size:8px">Optoma CinemaX D2</span>
+          </div>
+        </div>
+
+        <!-- UST info readout (shown when UST active) -->
+        <div class="ust-info" id="ustInfo">
+          <div class="ust-info-row">
+            <span class="ust-info-key">Offset applied</span>
+            <span class="ust-info-val" id="ust-off-val">115% V ↑</span>
+          </div>
+          <div class="ust-info-row">
+            <span class="ust-info-key">Throw ratio set</span>
+            <span class="ust-info-val" id="ust-tr-val">0.19 – 0.25 : 1</span>
+          </div>
+          <div class="ust-info-row">
+            <span class="ust-info-key">Mount mode</span>
+            <span class="ust-info-val">Floor / Table</span>
+          </div>
+          <div class="ust-info-row">
+            <span class="ust-info-key">Image bottom</span>
+            <span class="ust-info-val" id="ust-imgbot-val">above lens ↑</span>
+          </div>
+        </div>
+      </div>
 
       <!-- Mode toggle: % of screen height vs physical distance -->
       <div class="field">
@@ -458,7 +529,7 @@
       </div>
 
       <div class="tip">
-        Vertical offset shifts the image above/below the lens axis. 100% = image bottom at lens centreline (common for ceiling mounts). Physical distance mode uses your selected unit.
+        Vertical offset shifts the image above/below the lens axis. 100% V = image bottom aligns with lens centreline. <strong style="color:var(--accent3)">UST projectors</strong> use mirror-bounce optics — the image is entirely above the unit (115–120% V). The projector sits flat on the floor/shelf directly below the screen.
       </div>
     </div>
 
@@ -577,8 +648,6 @@
           <span class="unit" id="heightUnit">m above floor</span>
         </div>
       </div>
-    </div>
-
     </div>
 
     <div class="section">
@@ -726,6 +795,8 @@
       <span>← HORIZONTAL →</span>
       <span>↕ VERTICAL</span>
     </div>
+    <!-- Pause button — shown only in 3D view -->
+    <button class="pause-btn" id="pauseBtn" onclick="togglePause()">⏸ PAUSE</button>
   </div>
 
   <div class="info-bar">
@@ -978,14 +1049,32 @@ function updateProjHeightLabel() {
 }
 
 // ─── VIEW (SINGLE) ───────────────────────────────────────────
+let _paused = false;
+
 function setView(v) {
   if (S.splitMode !== 'single') return;
   S.currentView = v;
+  _paused = false;
   ['side','top','3d'].forEach(t =>
     document.getElementById('tab-'+t).classList.toggle('active', t === v));
   document.getElementById('axisHint').style.display = v === '3d' ? 'none' : 'flex';
+  // Show pause button only in 3D
+  const pb = document.getElementById('pauseBtn');
+  pb.classList.toggle('visible', v === '3d');
+  pb.classList.remove('paused');
+  pb.textContent = '⏸ PAUSE';
   if (v === '3d') start3DAnimation();
   else { S.animating = false; S.throwDistMax > 0 ? drawAll() : drawEmpty(); }
+}
+
+function togglePause() {
+  _paused = !_paused;
+  const pb = document.getElementById('pauseBtn');
+  pb.classList.toggle('paused', _paused);
+  pb.textContent = _paused ? '▶ RESUME' : '⏸ PAUSE';
+  if (!_paused && S.currentView === '3d' && S.splitMode === 'single') {
+    start3DAnimation();
+  }
 }
 
 // ─── ROOM CHANGE ─────────────────────────────────────────────
@@ -1010,9 +1099,12 @@ function onRoomChange() {
 }
 
 function onProjDistSlider() {
+  const slider = document.getElementById('projDistSlider');
+  const val = parseFloat(slider.value);
+  slider.style.background = `linear-gradient(to right, var(--accent) 0%, var(--accent) ${val}%, var(--border-hi) ${val}%, var(--border-hi) 100%)`;
   const minDist = 0.3;
   const maxDist = Math.max(S.roomDepth - 0.3, minDist + 0.5);
-  const pct = parseFloat(document.getElementById('projDistSlider').value) / 100;
+  const pct = val / 100;
   S.projDistFromScreen = minDist + pct * (maxDist - minDist);
   updateProjDistLabel();
   drawRoomPreview();
@@ -1199,6 +1291,95 @@ function applyOffsetPreset(el) {
   }
   readOffsetState();
   S.throwDistMax > 0 && drawAll();
+}
+
+// ─── UST MODE ────────────────────────────────────────────────
+let _ustActive = false;
+
+function toggleUST() {
+  _ustActive = !_ustActive;
+  const btn  = document.getElementById('ustBtn');
+  const badge = document.getElementById('ustBadge');
+  const sub  = document.getElementById('ustSubpresets');
+  const info = document.getElementById('ustInfo');
+
+  btn.classList.toggle('active', _ustActive);
+  badge.textContent = _ustActive ? 'ON' : 'OFF';
+  badge.style.background    = _ustActive ? 'rgba(127,255,0,0.18)' : '';
+  badge.style.borderColor   = _ustActive ? 'var(--accent3)' : '';
+  badge.style.color         = _ustActive ? 'var(--accent3)' : '';
+  sub.classList.toggle('open', _ustActive);
+  info.classList.toggle('open', _ustActive);
+
+  if (_ustActive) {
+    // Apply the first (default) UST sub-preset
+    const defaultChip = document.querySelector('.ust-sub-chip');
+    if (defaultChip) applyUSTPreset(defaultChip);
+    // Force floor mount — UST sits on floor/shelf
+    setMount('floor');
+    showNotif('UST Mode ON — mirror-bounce offset applied');
+  } else {
+    // Reset to zero offset
+    document.getElementById('offsetV').value = 0;
+    document.getElementById('offsetH').value = 0;
+    document.querySelectorAll('.offset-chip').forEach(c => c.classList.remove('active'));
+    document.querySelector('.offset-chip[data-v="0"][data-h="0"]').classList.add('active');
+    readOffsetState();
+    S.throwDistMax > 0 && drawAll();
+    showNotif('UST Mode OFF — offset reset');
+  }
+}
+
+function applyUSTPreset(el) {
+  if (!_ustActive) return;
+  document.querySelectorAll('.ust-sub-chip').forEach(c => c.classList.remove('active'));
+  el.classList.add('active');
+
+  const v     = parseFloat(el.dataset.v)    || 115;
+  const trMin = parseFloat(el.dataset.trMin) || 0.19;
+  const trMax = parseFloat(el.dataset.trMax) || 0.25;
+
+  // Apply the vertical offset
+  if (S.offsetMode === 'pct') {
+    document.getElementById('offsetV').value = v;
+    document.getElementById('offsetH').value = 0;
+  } else {
+    // Convert: v% of screen height → distance
+    const vDist = (v / 100) * (S.screenHeight || 1.69);
+    document.getElementById('offsetV').value = +fromMetres(vDist).toFixed(S.unit==='m'?3:2);
+    document.getElementById('offsetH').value = 0;
+  }
+
+  // Set throw ratios to UST range
+  document.getElementById('throwMin').value = trMin;
+  document.getElementById('throwMax').value = trMax;
+
+  // Clear regular preset chips — UST is its own mode
+  document.querySelectorAll('.offset-chip').forEach(c => c.classList.remove('active'));
+
+  // Update info readout
+  document.getElementById('ust-off-val').textContent = v + '% V ↑';
+  document.getElementById('ust-tr-val').textContent  = trMin + ' – ' + trMax + ' : 1';
+
+  // Calculate image bottom position relative to lens
+  // At v% offset, the image bottom = lens centre + (v - 50)% * screenHeight
+  // Simplified: image entirely above lens, bottom is at ~+((v-50)/100 * sh) above lens
+  const sh = S.screenHeight || 1.69;
+  const imgBottomAboveLens = ((v - 50) / 100) * sh;
+  const imgBottomStr = imgBottomAboveLens > 0
+    ? fd(imgBottomAboveLens) + ' above lens ↑'
+    : fd(Math.abs(imgBottomAboveLens)) + ' below lens ↓';
+  document.getElementById('ust-imgbot-val').textContent = imgBottomStr;
+
+  readOffsetState();
+  S.throwDistMax > 0 && drawAll();
+}
+
+// Update UST info when screen size changes (called from calculate)
+function updateUSTInfo() {
+  if (!_ustActive) return;
+  const activeChip = document.querySelector('.ust-sub-chip.active');
+  if (activeChip) applyUSTPreset(activeChip);
 }
 
 // ── Dial drag interaction ──
@@ -1432,13 +1613,15 @@ let _animT = 0;
 
 function start3DAnimation() {
   S.animating = true;
-  _animT = 0;
+  _paused = false;
   (function frame() {
-    if (!S.animating || S.splitMode !== 'single') return;
-    _animT += 0.006;
-    S.angle3d = 25 + Math.sin(_animT) * 28;
-    ctx.clearRect(0, 0, W, H);
-    drawPerspView(S.angle3d, ctx, W, H);
+    if (!S.animating || S.splitMode !== 'single' || S.currentView !== '3d') return;
+    if (!_paused) {
+      _animT += 0.006;
+      S.angle3d = 25 + Math.sin(_animT) * 28;
+      ctx.clearRect(0, 0, W, H);
+      drawPerspView(S.angle3d, ctx, W, H);
+    }
     requestAnimationFrame(frame);
   })();
 }
@@ -1576,6 +1759,7 @@ function calculate() {
   } else {
     drawAll();
   }
+  updateUSTInfo();
   showNotif('Calculations complete ✓');
 }
 
@@ -1711,31 +1895,29 @@ function drawCoverageOverlay(c, projArea, targetArea) {
 
 // ─── SIDE VIEW ────────────────────────────────────────────────
 function drawSideView(c, W, H) {
-  const PAD = 70;
+  const PAD = 72;
   const mode = S.mountMode;
+  const off  = getOffsetMetres();
 
   if (mode === 'down') {
-    // ── DOWN: projector mounts on ceiling, shoots straight down ──
-    const availH = H - PAD*2, availW = W - PAD*2;
+    // ── DOWN: projector on ceiling shoots straight down ──
     const rh = S.roomHeight;
-    const allH = Math.max(rh, 1) * 1.15;
-    const allW = Math.max(S.screenWidth, S.targetWidth) * 3.5;
-    const scl = Math.min(availH / allH, availW / allW);
+    const rw = Math.max(S.screenWidth, S.targetWidth) * 2.5;
+    const scl = Math.min((H - PAD*2) / (rh * 1.15), (W - PAD*2) / (rw * 1.2));
+    const roomPxH = rh * scl;
+    const roomPxW = rw * scl;
+    const floorY  = (H + roomPxH) / 2;
+    const ceilY   = floorY - roomPxH;
+    const projX   = W / 2;
+    const projLensH = getProjLensHeightAboveFloor();
+    const projY     = floorY - projLensH * scl;
+    const screenY   = floorY;
+    const screenL   = projX - S.screenWidth / 2 * scl;
+    const screenR   = projX + S.screenWidth / 2 * scl;
+    const originX   = (W - roomPxW) / 2;
 
-    const floorY   = H - PAD;
-    const ceilY    = floorY - rh * scl;
-    const projX    = W / 2;
-    const projLensH = getProjLensHeightAboveFloor(); // height above floor
-    const projY    = floorY - projLensH * scl;
+    _drawRoomEnvelopeV(c, W, originX, floorY, ceilY);
 
-    // Room envelope
-    _drawRoomEnvelopeV(c, W, PAD, floorY, ceilY);
-
-    const screenY = floorY; // screen on floor
-    const screenL = projX - S.screenWidth / 2 * scl;
-    const screenR = projX + S.screenWidth / 2 * scl;
-
-    // Coverage overlay
     const tL = projX - S.targetWidth/2*scl;
     const tR = projX + S.targetWidth/2*scl;
     drawCoverageOverlay(c,
@@ -1743,7 +1925,6 @@ function drawSideView(c, W, H) {
       { x: tL, y: screenY-8, w: tR-tL, h: 16 }
     );
 
-    // Beam fill
     c.beginPath(); c.moveTo(projX, projY); c.lineTo(screenL, screenY); c.lineTo(screenR, screenY); c.closePath();
     c.fillStyle = beamFill(c, projX, projY, projX, screenY, 0.45, 0.15, 0.05); c.fill();
     c.strokeStyle = 'rgba(0,229,255,0.7)'; c.lineWidth = 1.5; c.setLineDash([]);
@@ -1758,7 +1939,7 @@ function drawSideView(c, W, H) {
     c.beginPath(); c.moveTo(minHL, minY); c.lineTo(minHR, minY); c.stroke();
     c.setLineDash([]);
     c.font='9px "Share Tech Mono"'; c.fillStyle='rgba(255,107,0,0.8)'; c.textAlign='center';
-    c.fillText('MIN THROW', projX, minY - 5); c.textAlign = 'left';
+    c.fillText('MIN THROW', projX, minY - 5); c.textAlign='left';
 
     c.fillStyle = 'rgba(200,212,224,0.12)';
     c.fillRect(screenL, screenY-3, screenR-screenL, 6);
@@ -1768,71 +1949,65 @@ function drawSideView(c, W, H) {
     c.fillText(fd(S.screenWidth), (screenL+screenR)/2, screenY+15); c.textAlign='left';
 
     drawProjBodyDown(c, projX, projY - 10);
-
-    // Dimension: lens to floor
     dimLineV(c, projY, floorY, screenR + 30, fd(projLensH));
-    // Room height dim
     dimLineV(c, ceilY, floorY, projX + S.screenWidth/2*scl + 55, fd(rh));
 
     c.font='10px "Share Tech Mono"'; c.fillStyle='rgba(0,229,255,0.5)';
     c.fillText('SIDE ELEVATION — CEILING DOWN', 10, 18);
 
   } else {
-    // ── FLOOR or CEILING INVERTED: projector shoots horizontally ──
-    const availW = W - PAD*2, availH = H - PAD*2;
-    const off = getOffsetMetres();
-
-    // Room dimensions drive the scale
-    const rh = S.roomHeight;    // ceiling height
-    const rd = S.projDistFromScreen + S.screenWallDist + S.throwDistMax * 0.15; // total horizontal span
-    const allW = Math.max(S.projDistFromScreen + S.screenWallDist, rd) * 1.2;
-    const allH = Math.max(rh, S.screenHeight + Math.abs(off.v)) * 1.15;
-    const scl = Math.min(availW / allW, availH / allH);
-
-    // Canvas coords: floor at bottom, left = screen wall
-    const floorY = H - PAD;
-    const ceilY  = floorY - rh * scl;
-    const wallX  = PAD + S.screenWallDist * scl; // screen wall X
-
-    // Projector lens position
+    // ── FLOOR or CEILING INVERTED ──
+    const rh = S.roomHeight;
     const projLensH = getProjLensHeightAboveFloor();
-    const projX     = wallX + S.projDistFromScreen * scl;
-    const projY     = floorY - projLensH * scl;
+    const scrCentreAboveFloor = projLensH + off.v;
 
-    // Screen position (anchored to screen wall, centred on lens axis + offset)
-    const inv = mode === 'ceiling';
-    // Screen vertical centre = projector lens height + vertical offset
-    const scrCentreY = floorY - (projLensH + off.v) * scl;
+    // World dimensions: screen wall to projector + margin
+    const worldW = S.projDistFromScreen + S.screenWallDist + 0.8;
+    const worldH = rh;
+
+    // Scale to fill canvas, centred
+    const scl = Math.min((W - PAD*2) / worldW, (H - PAD*2) / worldH);
+    const contentPxW = worldW * scl;
+    const contentPxH = worldH * scl;
+    const originX = (W - contentPxW) / 2;
+    const floorY  = (H + contentPxH) / 2;
+    const ceilY   = floorY - contentPxH;
+
+    const wallX  = originX + S.screenWallDist * scl;
+    const projX  = wallX + S.projDistFromScreen * scl;
+    const projY  = floorY - projLensH * scl;
+    const inv    = mode === 'ceiling';
+
+    const scrCentreY = floorY - scrCentreAboveFloor * scl;
     const screenT    = scrCentreY - S.screenHeight / 2 * scl;
     const screenB    = scrCentreY + S.screenHeight / 2 * scl;
     const screenX    = wallX;
     const beamH      = screenB - screenT;
 
-    // Room envelope
-    _drawRoomEnvelopeH(c, W, PAD, floorY, ceilY, wallX);
+    _drawRoomEnvelopeH(c, W, originX, floorY, ceilY, wallX);
 
-    // Optical axis dashed line
+    // Optical axis
     c.save();
     c.strokeStyle = 'rgba(255,107,0,0.2)'; c.lineWidth = 1; c.setLineDash([6,5]);
     c.beginPath(); c.moveTo(projX, projY); c.lineTo(screenX, scrCentreY); c.stroke();
     c.setLineDash([]); c.restore();
 
-    // Vertical offset arrow
+    // Offset arrow
     if (Math.abs(off.v) > 0.001) {
       c.save();
       c.strokeStyle = 'rgba(255,107,0,0.7)'; c.lineWidth = 1.5; c.setLineDash([3,3]);
-      c.beginPath(); c.moveTo(screenX + 20, projY); c.lineTo(screenX + 20, scrCentreY); c.stroke();
+      c.beginPath(); c.moveTo(screenX + 22, projY); c.lineTo(screenX + 22, scrCentreY); c.stroke();
       c.setLineDash([]);
       c.font = '9px "Share Tech Mono"'; c.fillStyle = 'rgba(255,107,0,0.8)'; c.textAlign = 'left';
-      c.fillText(fd(Math.abs(off.v)) + (off.v > 0 ? ' ↑' : ' ↓'), screenX + 25, (projY + scrCentreY)/2 + 3);
+      c.fillText(fd(Math.abs(off.v)) + (off.v > 0 ? ' ↑' : ' ↓'), screenX + 27, (projY+scrCentreY)/2 + 3);
       c.restore();
     }
 
     // Coverage overlay
     const tH2 = S.targetHeight / 2 * scl;
     drawCoverageOverlay(c,
-      { x: screenX, y: screenT, w: 8, h: beamH },
-      { x: screenX - 4, y: scrCentreY - tH2, w: 16, h: tH2 * 2 }
+      { x: screenX,     y: screenT,           w: 8,  h: beamH  },
+      { x: screenX - 4, y: scrCentreY - tH2,  w: 16, h: tH2*2  }
     );
 
     // Beam
@@ -1843,10 +2018,10 @@ function drawSideView(c, W, H) {
     c.beginPath(); c.moveTo(projX,projY); c.lineTo(screenX,screenB); c.stroke();
 
     // Min throw
-    const minX = projX - S.throwDistMin * scl;
+    const minX    = projX - S.throwDistMin * scl;
     const minFrac = S.throwDistMin / S.throwDistMax;
-    const minHH = beamH * minFrac / 2;
-    const minCY = floorY - (projLensH + off.v * minFrac) * scl;
+    const minHH   = beamH * minFrac / 2;
+    const minCY   = floorY - (projLensH + off.v * minFrac) * scl;
     c.strokeStyle = 'rgba(255,107,0,0.9)'; c.lineWidth = 2; c.setLineDash([5,4]);
     c.beginPath(); c.moveTo(minX, minCY-minHH); c.lineTo(minX, minCY+minHH); c.stroke();
     c.setLineDash([]);
@@ -1855,7 +2030,9 @@ function drawSideView(c, W, H) {
 
     // Screen surface
     const scrGrad = c.createLinearGradient(screenX,screenT,screenX,screenB);
-    scrGrad.addColorStop(0,'rgba(200,212,224,0.04)'); scrGrad.addColorStop(0.5,'rgba(200,212,224,0.18)'); scrGrad.addColorStop(1,'rgba(200,212,224,0.04)');
+    scrGrad.addColorStop(0,'rgba(200,212,224,0.04)');
+    scrGrad.addColorStop(0.5,'rgba(200,212,224,0.18)');
+    scrGrad.addColorStop(1,'rgba(200,212,224,0.04)');
     c.fillStyle = scrGrad; c.fillRect(screenX, screenT, 8, beamH);
     c.strokeStyle = 'rgba(200,212,224,0.9)'; c.lineWidth = 2.5;
     c.beginPath(); c.moveTo(screenX,screenT); c.lineTo(screenX,screenB); c.stroke();
@@ -1865,15 +2042,11 @@ function drawSideView(c, W, H) {
     drawProjBodyH(c, projX, projY, inv);
 
     // Dimension lines
-    const dimY  = Math.max(screenB, floorY) + 28;
-    const dimY2 = dimY + 20;
-    dimLineH(c, projX, screenX, dimY,  fd(S.projDistFromScreen), '#00e5ff', false);
-    dimLineH(c, projX, minX,    dimY2, fd(S.throwDistMin), '#ff6b00', true);
-
-    // Vertical dim: lens height above floor
-    dimLineV(c, projY, floorY, projX + 30, fd(projLensH));
-    // Room height dim (right side)
-    dimLineV(c, ceilY, floorY, W - PAD + 20, fd(rh));
+    const dimBaseY = floorY + 28;
+    dimLineH(c, projX, screenX, dimBaseY,      fd(S.projDistFromScreen), '#00e5ff', false);
+    dimLineH(c, projX, minX,    dimBaseY + 20, fd(S.throwDistMin), '#ff6b00', true);
+    dimLineV(c, projY, floorY,  projX + 35,    fd(projLensH));
+    dimLineV(c, ceilY, floorY,  originX - 20,  fd(rh));
 
     const offLabel = S.offsetV !== 0 || S.offsetH !== 0 ? ` · V:${S.offsetV.toFixed(0)}% H:${S.offsetH.toFixed(0)}%` : '';
     c.font='10px "Share Tech Mono"'; c.fillStyle='rgba(0,229,255,0.5)';
@@ -1882,44 +2055,44 @@ function drawSideView(c, W, H) {
 }
 
 // ─── ROOM ENVELOPE HELPERS ────────────────────────────────────
-function _drawRoomEnvelopeH(c, W, PAD, floorY, ceilY, wallX) {
-  const roomRight = W - PAD + 10;
-  // Floor fill
-  c.fillStyle = 'rgba(40,50,60,0.5)';
-  c.fillRect(PAD, floorY, roomRight - PAD, 6);
-  // Ceiling fill
-  c.fillStyle = 'rgba(30,37,48,0.8)';
-  c.fillRect(PAD, ceilY - 5, roomRight - PAD, 5);
+function _drawRoomEnvelopeH(c, W, originX, floorY, ceilY, wallX) {
+  const right = originX + (W - originX) + 20;
+  // Floor slab
+  c.fillStyle = 'rgba(40,50,60,0.6)'; c.fillRect(originX, floorY, right - originX, 6);
+  // Ceiling slab
+  c.fillStyle = 'rgba(30,37,48,0.85)'; c.fillRect(originX, ceilY - 5, right - originX, 5);
   // Floor line
-  c.strokeStyle = 'rgba(90,106,122,0.6)'; c.lineWidth = 2; c.setLineDash([]);
-  c.beginPath(); c.moveTo(PAD, floorY); c.lineTo(roomRight, floorY); c.stroke();
+  c.strokeStyle = 'rgba(90,106,122,0.65)'; c.lineWidth = 2; c.setLineDash([]);
+  c.beginPath(); c.moveTo(originX, floorY); c.lineTo(right, floorY); c.stroke();
   // Ceiling line
   c.strokeStyle = 'rgba(90,106,122,0.4)'; c.lineWidth = 1.5;
-  c.beginPath(); c.moveTo(PAD, ceilY); c.lineTo(roomRight, ceilY); c.stroke();
-  // Screen wall (vertical left line)
-  c.strokeStyle = 'rgba(90,106,122,0.35)'; c.lineWidth = 1;
+  c.beginPath(); c.moveTo(originX, ceilY); c.lineTo(right, ceilY); c.stroke();
+  // Screen wall (left boundary)
+  c.strokeStyle = 'rgba(90,106,122,0.3)'; c.lineWidth = 1;
   c.beginPath(); c.moveTo(wallX, floorY + 4); c.lineTo(wallX, ceilY - 2); c.stroke();
-  // Floor label
+  // Labels
   c.font='9px "Share Tech Mono"'; c.fillStyle='rgba(90,106,122,0.5)'; c.textAlign='right';
-  c.fillText('FLOOR', roomRight - 4, floorY - 3);
-  c.fillText('CEILING', roomRight - 4, ceilY + 10);
+  c.fillText('FLOOR',   right - 6, floorY - 3);
+  c.fillText('CEILING', right - 6, ceilY + 10);
   c.textAlign='left';
 }
 
-function _drawRoomEnvelopeV(c, W, PAD, floorY, ceilY) {
+function _drawRoomEnvelopeV(c, W, originX, floorY, ceilY) {
+  const right = W - originX;
+  // Floor slab
+  c.fillStyle = 'rgba(40,50,60,0.6)'; c.fillRect(originX, floorY, right - originX, 6);
+  // Ceiling slab
+  c.fillStyle = 'rgba(30,37,48,0.85)'; c.fillRect(originX, ceilY - 5, right - originX, 5);
   // Floor line
-  c.strokeStyle = 'rgba(90,106,122,0.6)'; c.lineWidth = 2;
-  c.beginPath(); c.moveTo(PAD, floorY); c.lineTo(W-PAD, floorY); c.stroke();
-  // Floor fill
-  c.fillStyle = 'rgba(40,50,60,0.5)'; c.fillRect(PAD, floorY, W-PAD*2, 5);
+  c.strokeStyle = 'rgba(90,106,122,0.65)'; c.lineWidth = 2;
+  c.beginPath(); c.moveTo(originX, floorY); c.lineTo(right, floorY); c.stroke();
   // Ceiling line
   c.strokeStyle = 'rgba(90,106,122,0.4)'; c.lineWidth = 1.5;
-  c.beginPath(); c.moveTo(PAD, ceilY); c.lineTo(W-PAD, ceilY); c.stroke();
-  c.fillStyle = 'rgba(30,37,48,0.8)'; c.fillRect(PAD, ceilY-5, W-PAD*2, 5);
+  c.beginPath(); c.moveTo(originX, ceilY); c.lineTo(right, ceilY); c.stroke();
   // Labels
   c.font='9px "Share Tech Mono"'; c.fillStyle='rgba(90,106,122,0.5)'; c.textAlign='right';
-  c.fillText('FLOOR', W-PAD-4, floorY - 3);
-  c.fillText('CEILING', W-PAD-4, ceilY + 10);
+  c.fillText('FLOOR',   right - 6, floorY - 3);
+  c.fillText('CEILING', right - 6, ceilY + 10);
   c.textAlign='left';
 }
 
@@ -2273,7 +2446,9 @@ updateOffsetDial();
 updatePresetChips();
 updateProjHeightLabel();
 // Init room slider midpoint
-document.getElementById('projDistSlider').value = 50;
+const _initSlider = document.getElementById('projDistSlider');
+_initSlider.value = 50;
+_initSlider.style.background = `linear-gradient(to right, var(--accent) 0%, var(--accent) 50%, var(--border-hi) 50%, var(--border-hi) 100%)`;
 onRoomChange();  // reads all room fields, draws preview
 // Initial canvas resize after page fully lays out
 requestAnimationFrame(() => { _doResize(); });
