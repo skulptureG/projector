@@ -1,0 +1,1584 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ThrowCAD — Projector Throw Visualiser</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Barlow+Condensed:wght@400;600;700;900&family=Barlow:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg:#0a0c0f; --surface:#111418; --border:#1e2530;
+    --accent:#00e5ff; --accent2:#ff6b00; --accent3:#7fff00; --bad:#ff3b3b;
+    --text:#c8d4e0; --text-dim:#6a7a8a; --text-bright:#eaf2ff;
+    --grid:rgba(0,229,255,0.04);
+    --font-mono:'Share Tech Mono','Courier New',monospace;
+    --font-cond:'Barlow Condensed','Arial Narrow',sans-serif;
+    --font-body:'Barlow','Segoe UI',Arial,sans-serif;
+  }
+  * { box-sizing:border-box; margin:0; padding:0; }
+  html, body { height:100%; }
+  body {
+    background:var(--bg); color:var(--text);
+    font-family:var(--font-body); font-size:14px;
+    display:flex; flex-direction:column; height:100dvh; overflow:hidden;
+  }
+
+  /* ── Header ── */
+  header {
+    display:flex; align-items:center; justify-content:space-between; gap:12px;
+    padding:12px 24px; border-bottom:1px solid var(--border); background:var(--surface); flex:0 0 auto;
+  }
+  .logo { font-family:var(--font-cond); font-weight:900; font-size:21px; letter-spacing:0.12em; color:var(--text-bright); text-transform:uppercase; white-space:nowrap; }
+  .logo span { color:var(--accent); }
+  .logo .logo-sub { color:inherit; }
+  .header-badge { font-family:var(--font-mono); font-size:10px; color:var(--accent); border:1px solid var(--accent); padding:3px 8px; letter-spacing:0.1em; opacity:0.7; white-space:nowrap; }
+
+  /* ── Layout ── */
+  .layout {
+    flex:1 1 auto; min-height:0;
+    display:grid;
+    grid-template-columns:320px minmax(0,1fr) 270px;
+    grid-template-rows:minmax(0,1fr) auto;
+    grid-template-areas:"side canvas maths" "side info maths";
+  }
+  .sidebar { grid-area:side; background:var(--surface); border-right:1px solid var(--border); overflow-y:auto; }
+  .canvas-wrap { grid-area:canvas; display:flex; flex-direction:column; background:var(--bg); min-height:0; overflow:hidden; }
+  .stage { position:relative; flex:1 1 auto; min-height:0; overflow:hidden; }
+  .maths-panel { grid-area:maths; background:var(--surface); border-left:1px solid var(--border); overflow-y:auto; display:flex; flex-direction:column; }
+  .info-bar {
+    grid-area:info; background:var(--surface); border-top:1px solid var(--border);
+    padding:9px 18px; display:flex; flex-wrap:wrap; align-items:center; gap:8px 22px;
+    font-family:var(--font-mono); font-size:11px; color:var(--text-dim);
+  }
+  .sidebar::-webkit-scrollbar, .maths-panel::-webkit-scrollbar { width:4px; }
+  .sidebar::-webkit-scrollbar-thumb, .maths-panel::-webkit-scrollbar-thumb { background:var(--border); }
+
+  .stage::before {
+    content:''; position:absolute; inset:0; pointer-events:none;
+    background-image:linear-gradient(var(--grid) 1px,transparent 1px),linear-gradient(90deg,var(--grid) 1px,transparent 1px);
+    background-size:40px 40px;
+  }
+  canvas { position:absolute; left:0; top:0; display:block; }
+  canvas { touch-action:none; }
+  canvas.orbit { cursor:grab; }
+
+  /* ── Sidebar ── */
+  .section { padding:18px 20px; border-bottom:1px solid var(--border); }
+  .section-label {
+    font-family:var(--font-mono); font-size:9px; letter-spacing:0.2em;
+    color:var(--accent); text-transform:uppercase; margin-bottom:14px;
+    display:flex; align-items:center; gap:8px;
+  }
+  .section-label::after { content:''; flex:1; height:1px; background:linear-gradient(to right,var(--accent),transparent); opacity:0.3; }
+  .section-label small { color:var(--text-dim); font-size:9px; letter-spacing:0.04em; }
+
+  .field { margin-bottom:12px; }
+  .field > label { display:block; font-size:11px; font-weight:500; color:var(--text-dim); text-transform:uppercase; letter-spacing:0.08em; margin-bottom:5px; }
+  .input-row { display:flex; gap:6px; align-items:center; }
+  .hint { margin-top:5px; font-size:10px; color:var(--text-dim); }
+
+  input[type="number"], input[type="text"], select, textarea {
+    background:var(--bg); border:1px solid var(--border); color:var(--text-bright);
+    font-family:var(--font-mono); font-size:14px; padding:8px 10px; width:100%;
+    outline:none; transition:border-color 0.2s; border-radius:0; -webkit-appearance:none; appearance:none;
+  }
+  textarea { font-family:var(--font-body); font-size:12px; resize:vertical; min-height:56px; }
+  input:focus, select:focus, textarea:focus { border-color:var(--accent); box-shadow:0 0 0 2px rgba(0,229,255,0.08); }
+  select { cursor:pointer; padding-right:22px;
+    background-image:linear-gradient(45deg,transparent 50%,var(--text-dim) 50%),linear-gradient(135deg,var(--text-dim) 50%,transparent 50%);
+    background-position:calc(100% - 12px) 50%,calc(100% - 7px) 50%; background-size:5px 5px,5px 5px; background-repeat:no-repeat; }
+  select option { background:var(--surface); }
+  .unit { font-family:var(--font-mono); font-size:10px; color:var(--text-dim); white-space:nowrap; }
+
+  .ratio-inputs { display:flex; gap:6px; align-items:center; }
+  .ratio-inputs input { flex:1 1 0; min-width:0; }
+  .ratio-sep { font-family:var(--font-mono); font-size:16px; color:var(--text-dim); }
+
+  .mount-grid { display:grid; grid-template-columns:1fr 1fr 1fr; gap:6px; }
+  .mount-btn {
+    background:var(--bg); border:1px solid var(--border); color:var(--text-dim);
+    font-family:var(--font-cond); font-size:11px; font-weight:600; letter-spacing:0.06em; text-transform:uppercase;
+    padding:10px 6px; cursor:pointer; display:flex; flex-direction:column; align-items:center; gap:5px; transition:all 0.18s;
+  }
+  .mount-btn svg { width:22px; height:22px; }
+  .mount-btn:hover { border-color:var(--accent); color:var(--text); }
+  .mount-btn.active { border-color:var(--accent); background:rgba(0,229,255,0.06); color:var(--accent); }
+
+  .preset-chips { display:flex; flex-wrap:wrap; gap:5px; }
+  .chip {
+    font-family:var(--font-mono); font-size:10px; padding:4px 9px;
+    border:1px solid var(--border); background:var(--bg); color:var(--text-dim); cursor:pointer; transition:all 0.15s;
+  }
+  .chip:hover, .chip.active { border-color:var(--accent2); color:var(--accent2); background:rgba(255,107,0,0.06); }
+
+  .db-results { margin-top:7px; max-height:230px; overflow-y:auto; border:1px solid var(--border); display:none; }
+  .db-results.open { display:block; }
+  .db-result-item { padding:8px 11px; border-bottom:1px solid var(--border); cursor:pointer; font-size:12px; }
+  .db-result-item:last-child { border-bottom:none; }
+  .db-result-item:hover, .db-result-item.sel { background:rgba(0,229,255,0.07); }
+  .db-name { color:var(--text-bright); font-weight:500; }
+  .db-meta { font-size:10px; color:var(--text-dim); margin-top:2px; font-family:var(--font-mono); }
+  .db-status { font-family:var(--font-mono); font-size:10px; color:var(--text-dim); padding:8px; text-align:center; }
+  .db-result-item mark { background:transparent; color:var(--accent); font-weight:700; }
+  .tip { font-size:10px; color:var(--text-dim); line-height:1.5; margin-top:8px; padding:7px 8px; background:var(--bg); border-left:2px solid var(--border); }
+
+  .results-grid { display:grid; grid-template-columns:1fr 1fr; gap:7px; }
+  .result-card { background:var(--bg); border:1px solid var(--border); padding:10px; }
+  .r-label { font-size:9px; color:var(--text-dim); text-transform:uppercase; letter-spacing:0.1em; margin-bottom:3px; }
+  .r-value { font-family:var(--font-mono); font-size:17px; color:var(--accent); line-height:1; }
+  .r-unit { font-size:10px; color:var(--text-dim); margin-top:2px; }
+  .result-card.hi { border-color:rgba(0,229,255,0.35); background:rgba(0,229,255,0.04); }
+  .result-card.hi .r-value { color:var(--text-bright); font-size:21px; }
+
+  .lux-bar-wrap { margin-top:10px; background:var(--bg); border:1px solid var(--border); padding:10px 11px; }
+  .lux-bar-bg { height:6px; background:var(--border); overflow:hidden; }
+  .lux-bar-fill { height:100%; width:0; background:linear-gradient(90deg,#00e5ff,#7fff00,#ff6b00,#ff2020); transition:width 0.4s; }
+  .lux-val { font-family:var(--font-mono); font-size:12px; color:var(--text-bright); margin-top:5px; }
+  .lux-desc { font-size:10px; color:var(--text-dim); margin-top:2px; }
+
+  .calc-btn {
+    width:100%; background:var(--accent); border:none; color:var(--bg);
+    font-family:var(--font-cond); font-weight:700; font-size:14px; letter-spacing:0.15em; text-transform:uppercase;
+    padding:12px; cursor:pointer; transition:opacity 0.2s, transform 0.1s;
+  }
+  .calc-btn:hover { opacity:0.9; }
+  .calc-btn:active { transform:scale(0.98); }
+
+  .proj-btn {
+    display:flex; align-items:center; justify-content:center; gap:6px;
+    padding:10px 8px; border:1px solid var(--border); background:var(--bg); color:var(--text-dim);
+    font-family:var(--font-cond); font-size:11px; font-weight:700; letter-spacing:0.1em; text-transform:uppercase;
+    cursor:pointer; transition:all 0.18s; text-align:center;
+  }
+  .save-btn:hover { border-color:var(--accent3); color:var(--accent3); background:rgba(127,255,0,0.05); }
+  .load-btn:hover { border-color:var(--accent2); color:var(--accent2); background:rgba(255,107,0,0.05); }
+  .btn-pair { display:grid; grid-template-columns:1fr 1fr; gap:7px; }
+  .loaded-meta { display:none; margin-top:10px; padding:8px; background:var(--bg); border:1px solid var(--border); }
+  .loaded-meta .k { font-size:9px; color:var(--text-dim); letter-spacing:0.1em; margin-bottom:4px; }
+  .loaded-meta .n { font-family:var(--font-mono); font-size:12px; color:var(--accent); }
+  .loaded-meta .d { font-size:10px; color:var(--text-dim); margin-top:2px; }
+
+  .target-toggle { display:flex; align-items:center; gap:8px; margin-bottom:10px; cursor:pointer; user-select:none; }
+  .toggle-switch { width:32px; height:17px; background:var(--border); border-radius:9px; position:relative; transition:background 0.2s; flex-shrink:0; }
+  .toggle-switch.on { background:var(--accent); }
+  .toggle-switch::after { content:''; position:absolute; width:11px; height:11px; background:#fff; border-radius:50%; top:3px; left:3px; transition:left 0.2s; }
+  .toggle-switch.on::after { left:18px; }
+  .toggle-label { font-size:11px; color:var(--text-dim); letter-spacing:0.05em; }
+  .toggle-label.on { color:var(--accent); }
+
+  /* ── Canvas overlays ── */
+  .view-tabs { position:absolute; top:12px; right:12px; display:flex; gap:4px; z-index:10; }
+  .view-tab {
+    font-family:var(--font-mono); font-size:10px; letter-spacing:0.1em; padding:6px 12px;
+    background:var(--surface); border:1px solid var(--border); color:var(--text-dim); cursor:pointer; transition:all 0.15s;
+  }
+  .view-tab:hover { border-color:var(--accent); color:var(--text); }
+  .view-tab.active { background:var(--accent); color:var(--bg); border-color:var(--accent); }
+
+  .info-item { display:flex; align-items:center; gap:7px; }
+  .info-dot { width:6px; height:6px; border-radius:50%; background:var(--accent); }
+  .info-dot.orange { background:var(--accent2); }
+  .info-dot.green { background:var(--accent3); }
+  .info-dot.grey { background:#aaa; }
+  .info-val { color:var(--text-bright); }
+  .info-brand { margin-left:auto; font-size:9px; opacity:0.35; }
+
+  .notif {
+    position:fixed; top:64px; right:16px; background:var(--surface); border:1px solid var(--accent); color:var(--accent);
+    font-family:var(--font-mono); font-size:11px; padding:10px 15px; z-index:1000;
+    transform:translateX(calc(100% + 40px)); opacity:0; transition:transform 0.3s, opacity 0.3s; max-width:280px; pointer-events:none;
+  }
+  .notif.show { transform:translateX(0); opacity:1; }
+  .notif.error { border-color:var(--bad); color:var(--bad); }
+
+  /* ── Zoom dock ── */
+  .zoom-dock { flex:0 0 auto; border-top:1px solid var(--border); background:var(--surface); padding:10px 18px 11px; }
+  .zd-top { display:flex; flex-wrap:wrap; align-items:center; gap:6px 14px; font-family:var(--font-mono); font-size:11px; }
+  .zd-title { color:var(--accent); font-size:9px; letter-spacing:0.2em; }
+  .zd-read { color:var(--text-bright); font-size:16px; }
+  .zd-img { color:var(--text-dim); }
+  .zd-chip { padding:2px 8px; border:1px solid var(--border); font-size:10px; letter-spacing:0.06em; color:var(--text-dim); }
+  .zd-chip.fills { color:var(--accent); border-color:var(--accent); }
+  .zd-chip.over  { color:var(--accent3); border-color:var(--accent3); }
+  .zd-chip.under { color:var(--bad); border-color:var(--bad); }
+  .zd-fit { margin-left:auto; background:var(--bg); border:1px solid var(--border); color:var(--text-dim); font-family:var(--font-cond); font-weight:700; font-size:11px; letter-spacing:0.12em; padding:5px 12px; cursor:pointer; }
+  .zd-fit:hover { border-color:var(--accent); color:var(--accent); }
+  .zd-track { display:flex; align-items:center; gap:10px; margin-top:8px; }
+  .zd-end { font-family:var(--font-mono); font-size:11px; color:var(--text-dim); min-width:34px; text-align:center; }
+  .zd-sliderwrap { position:relative; flex:1; height:24px; }
+  .zd-sliderwrap input[type=range] { position:absolute; inset:0; width:100%; height:24px; margin:0; padding:0; border:none; background:transparent; -webkit-appearance:none; appearance:none; cursor:pointer; box-shadow:none; }
+  input[type=range]::-webkit-slider-runnable-track { height:4px; background:linear-gradient(90deg,#00e5ff,#ff6b00); border-radius:2px; }
+  input[type=range]::-moz-range-track { height:4px; background:linear-gradient(90deg,#00e5ff,#ff6b00); border-radius:2px; }
+  input[type=range]::-webkit-slider-thumb { -webkit-appearance:none; width:14px; height:14px; border-radius:50%; background:var(--text-bright); border:2px solid var(--bg); margin-top:-5px; box-shadow:0 0 0 1px var(--accent); }
+  input[type=range]::-moz-range-thumb { width:12px; height:12px; border-radius:50%; background:var(--text-bright); border:2px solid var(--bg); }
+  input[type=range]:disabled { opacity:0.35; cursor:default; }
+  .zd-mark { position:absolute; top:0; width:2px; height:24px; background:var(--accent); pointer-events:none; transform:translateX(-1px); z-index:2; }
+  .zd-mark.target { background:var(--accent3); }
+  .zd-mark.out { background:var(--bad); }
+  .zd-sub { margin-top:5px; font-family:var(--font-mono); font-size:10px; color:var(--text-dim); line-height:1.5; }
+
+  /* ── Maths panel ── */
+  .maths-row { padding:10px 16px; border-bottom:1px solid var(--border); }
+  .maths-row-label { font-family:var(--font-mono); font-size:9px; color:var(--text-dim); text-transform:uppercase; letter-spacing:0.12em; margin-bottom:5px; }
+  .maths-triple { display:grid; grid-template-columns:1fr 1fr 1fr; gap:4px; }
+  .maths-cell { background:var(--bg); border:1px solid var(--border); padding:5px 7px; min-width:0; }
+  .maths-cell.wide { grid-column:span 2; }
+  .mc-unit { font-size:8px; color:var(--text-dim); letter-spacing:0.08em; margin-bottom:2px; text-transform:uppercase; }
+  .mc-val { font-family:var(--font-mono); font-size:13px; color:var(--accent); line-height:1.1; overflow:hidden; text-overflow:ellipsis; }
+  .maths-cell.primary .mc-val { color:var(--text-bright); font-size:15px; }
+  .maths-divider {
+    font-family:var(--font-mono); font-size:9px; color:var(--accent); text-transform:uppercase; letter-spacing:0.2em;
+    padding:10px 16px 4px; opacity:0.7; display:flex; align-items:center; gap:6px;
+  }
+  .maths-divider::after { content:''; flex:1; height:1px; background:linear-gradient(to right,var(--accent),transparent); opacity:0.3; }
+  .maths-foot { padding:14px 16px; font-size:9px; color:var(--text-dim); opacity:0.45; margin-top:auto; }
+
+  .warn-box { display:none; margin:10px 16px 0; padding:8px 10px; border:1px solid var(--bad); background:rgba(255,59,59,0.07); color:#ff8a8a; font-size:11px; line-height:1.45; }
+  .warn-box.show { display:block; }
+  .warn-box b { font-family:var(--font-mono); font-size:9px; letter-spacing:0.15em; color:var(--bad); display:block; margin-bottom:3px; }
+
+  .target-status { display:flex; align-items:center; gap:8px; padding:8px 16px; border-bottom:1px solid var(--border); font-family:var(--font-mono); }
+  .target-dot { width:10px; height:10px; border-radius:50%; flex-shrink:0; background:var(--text-dim); }
+  .target-dot.over { background:var(--accent3); box-shadow:0 0 6px var(--accent3); }
+  .target-dot.under { background:var(--bad); box-shadow:0 0 6px var(--bad); }
+  .target-dot.exact { background:var(--accent); box-shadow:0 0 6px var(--accent); }
+  .target-diff { font-size:12px; font-weight:bold; }
+  .target-diff.over { color:var(--accent3); }
+  .target-diff.under { color:var(--bad); }
+  .target-diff.exact { color:var(--accent); }
+  .target-sub { font-size:9px; color:var(--text-dim); margin-top:2px; }
+
+  /* ── Tablet / phone: single column, canvas first ── */
+  @media (max-width:1100px) {
+    body { height:auto; min-height:100dvh; overflow:auto; }
+    .layout { display:flex; flex-direction:column; }
+    .canvas-wrap { order:1; flex:0 0 auto; overflow:visible; }
+    .stage { flex:0 0 auto; height:56vh; min-height:320px; }
+    .info-bar { order:2; }
+    .sidebar { order:3; border-right:none; border-top:1px solid var(--border); overflow:visible; }
+    .maths-panel { order:4; border-left:none; border-top:1px solid var(--border); overflow:visible; }
+    header { padding:10px 14px; }
+    .logo { font-size:17px; }
+  }
+  @media (max-width:560px) {
+    .logo .logo-sub { display:none; }
+    .header-badge { display:none; }
+    .view-tab { padding:8px 11px; }
+    input, select, textarea { font-size:16px; } /* stops iOS zoom-on-focus */
+    .notif { top:12px; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">Throw<span>CAD</span><span class="logo-sub"> — Projector Visualiser</span></div>
+  <div class="header-badge">v3.2 // MOVE PROJECTOR + RATIO SWEEP</div>
+</header>
+
+<main class="layout">
+
+  <!-- ═════════ SIDEBAR ═════════ -->
+  <aside class="sidebar">
+
+    <div class="section">
+      <div class="section-label">Projector Database <small>120+ MODELS</small></div>
+      <div class="field">
+        <label for="dbSearch">Type to filter — click to load specs</label>
+        <input type="text" id="dbSearch" placeholder="Brand, model, lumens… e.g. BenQ 4K" autocomplete="off" spellcheck="false">
+        <div class="db-results" id="dbResults"></div>
+        <div class="tip">Indicative values from a built-in list. Always confirm throw ratio and lumens against the manufacturer datasheet before specifying hardware.</div>
+      </div>
+    </div>
+
+    <div class="section">
+      <div class="section-label">Lens Specification</div>
+      <div class="field">
+        <label>Throw Ratio (min : 1 → max : 1)</label>
+        <div class="ratio-inputs">
+          <input type="number" id="throwMin" value="1.38" step="0.01" min="0.05" max="10" inputmode="decimal">
+          <span class="ratio-sep">–</span>
+          <input type="number" id="throwMax" value="2.22" step="0.01" min="0.05" max="10" inputmode="decimal">
+          <span class="unit">: 1</span>
+        </div>
+        <div class="hint">Fixed lens: set both to the same value</div>
+      </div>
+      <div class="field">
+        <label for="lumens">Lumens (ANSI)</label>
+        <div class="input-row">
+          <input type="number" id="lumens" value="5000" step="100" min="1" inputmode="numeric">
+          <span class="unit">lm</span>
+        </div>
+      </div>
+      <div class="field">
+        <label for="aspectRatio">Native Aspect Ratio</label>
+        <select id="aspectRatio">
+          <option value="1.778">16:9 (1080p / 4K)</option>
+          <option value="1.6">16:10 (WUXGA)</option>
+          <option value="1.333">4:3 (XGA / SXGA)</option>
+          <option value="2.37">CinemaScope 2.37:1</option>
+          <option value="2.165">Scope 2.165:1</option>
+          <option value="1">1:1</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="section">
+      <div class="section-label">Screen Setup</div>
+      <div class="field">
+        <label for="screenWidth">Screen Width</label>
+        <div class="input-row">
+          <input type="number" id="screenWidth" value="3" step="0.1" min="0.1" inputmode="decimal">
+          <select id="unitSel" style="width:72px" aria-label="Units">
+            <option value="m">m</option>
+            <option value="ft">ft</option>
+          </select>
+        </div>
+      </div>
+      <div class="field">
+        <label>Quick Presets (metres)</label>
+        <div class="preset-chips" id="screenPresets">
+          <div class="chip" data-w="1">1m</div>
+          <div class="chip" data-w="2">2m</div>
+          <div class="chip active" data-w="3">3m</div>
+          <div class="chip" data-w="4">4m</div>
+          <div class="chip" data-w="6">6m</div>
+          <div class="chip" data-w="8">8m</div>
+          <div class="chip" data-w="10">10m</div>
+          <div class="chip" data-w="16">16m</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="section">
+      <div class="section-label">Mount Mode</div>
+      <div class="mount-grid">
+        <button class="mount-btn active" id="mount-floor" onclick="setMount('floor')">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="8" y="6" width="8" height="5" rx="1"/><line x1="12" y1="11" x2="12" y2="18"/><line x1="4" y1="18" x2="20" y2="18"/></svg>Floor
+        </button>
+        <button class="mount-btn" id="mount-ceiling" onclick="setMount('ceiling')">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><line x1="4" y1="6" x2="20" y2="6"/><line x1="12" y1="6" x2="12" y2="13"/><rect x="8" y="13" width="8" height="5" rx="1"/></svg>Ceiling
+        </button>
+        <button class="mount-btn" id="mount-down" onclick="setMount('down')">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><line x1="4" y1="5" x2="20" y2="5"/><line x1="12" y1="5" x2="12" y2="10"/><rect x="8" y="10" width="8" height="5" rx="1"/><polyline points="8,15 12,20 16,15"/></svg>Down
+        </button>
+      </div>
+      <div class="field" style="margin-top:11px">
+        <label id="heightLabel" for="mountHeight">Lens Height Above Floor</label>
+        <div class="input-row">
+          <input type="number" id="mountHeight" value="3" step="0.1" min="0.1" inputmode="decimal">
+          <span class="unit ulab">m</span>
+        </div>
+        <div class="hint" id="heightHint"></div>
+      </div>
+      <div class="field" id="distField">
+        <label for="projDist">Projector Distance to Screen</label>
+        <div class="input-row">
+          <input type="number" id="projDist" step="0.1" min="0.1" inputmode="decimal">
+          <span class="unit ulab">m</span>
+        </div>
+        <div class="hint">Drag the projector on the canvas, or type it. <a href="#" onclick="resetDist();return false" style="color:var(--accent)">Auto (max throw)</a></div>
+      </div>
+    </div>
+
+    <div class="section">
+      <div class="section-label">Target Screen Size</div>
+      <div class="target-toggle" onclick="toggleTarget()">
+        <div class="toggle-switch" id="targetToggle"></div>
+        <span class="toggle-label" id="targetToggleLabel">ENABLE TARGET COMPARISON</span>
+      </div>
+      <div id="targetFields" style="display:none">
+        <div class="field">
+          <label for="targetWidth">Target Screen Width</label>
+          <div class="input-row">
+            <input type="number" id="targetWidth" value="4" step="0.1" min="0.1" inputmode="decimal">
+            <span class="unit ulab">m</span>
+          </div>
+        </div>
+        <div class="field">
+          <label>Quick Presets (metres)</label>
+          <div class="preset-chips" id="targetPresets">
+            <div class="chip" data-w="2">2m</div>
+            <div class="chip" data-w="3">3m</div>
+            <div class="chip active" data-w="4">4m</div>
+            <div class="chip" data-w="6">6m</div>
+            <div class="chip" data-w="8">8m</div>
+          </div>
+        </div>
+        <div class="hint" style="line-height:1.6">
+          <span style="color:var(--accent3)">■</span> Green = image spills past the target &nbsp;
+          <span style="color:var(--bad)">■</span> Red = target not covered
+        </div>
+      </div>
+    </div>
+
+    <div class="section">
+      <div class="section-label">Calculated Results</div>
+      <div class="results-grid">
+        <div class="result-card hi"><div class="r-label">Throw Min</div><div class="r-value" id="res-throw-min">—</div><div class="r-unit" id="res-throw-min-u">metres</div></div>
+        <div class="result-card hi"><div class="r-label">Throw Max</div><div class="r-value" id="res-throw-max">—</div><div class="r-unit" id="res-throw-max-u">metres</div></div>
+        <div class="result-card"><div class="r-label">Screen Height</div><div class="r-value" id="res-sh">—</div><div class="r-unit" id="res-sh-u">metres</div></div>
+        <div class="result-card"><div class="r-label">Diagonal</div><div class="r-value" id="res-diag">—</div><div class="r-unit">inches</div></div>
+        <div class="result-card"><div class="r-label">Screen Area</div><div class="r-value" id="res-area">—</div><div class="r-unit">m²</div></div>
+        <div class="result-card"><div class="r-label">Foot-Lamberts</div><div class="r-value" id="res-fl">—</div><div class="r-unit">fL (SMPTE: 14–22)</div></div>
+      </div>
+      <div class="lux-bar-wrap">
+        <div class="r-label">Surface Luminance</div>
+        <div class="lux-bar-bg"><div class="lux-bar-fill" id="luxBar"></div></div>
+        <div class="lux-val" id="luxVal">—</div>
+        <div class="lux-desc" id="luxDesc">Enter values to calculate</div>
+      </div>
+    </div>
+
+    <div class="section">
+      <button class="calc-btn" onclick="calculate()">CALCULATE &amp; RENDER</button>
+      <div class="hint" style="text-align:center">Results also update live as you type</div>
+    </div>
+
+    <div class="section">
+      <div class="section-label">Project File</div>
+      <div class="field">
+        <label for="projectName">Project Name</label>
+        <input type="text" id="projectName" placeholder="e.g. Main Hall — BenQ 4K">
+      </div>
+      <div class="field">
+        <label for="projectNotes">Notes</label>
+        <textarea id="projectNotes" placeholder="Room dimensions, client name, install notes…"></textarea>
+      </div>
+      <div class="btn-pair">
+        <button class="proj-btn save-btn" onclick="saveProject()">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+          SAVE / EXPORT
+        </button>
+        <label class="proj-btn load-btn" for="loadFileInput">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 5 17 10"/><line x1="12" y1="5" x2="12" y2="17"/></svg>
+          OPEN FILE
+        </label>
+        <input type="file" id="loadFileInput" accept=".throwcad,.json,application/json" style="display:none" onchange="loadProject(event)">
+      </div>
+      <div class="loaded-meta" id="projectMeta">
+        <div class="k">LOADED PROJECT</div>
+        <div class="n" id="projectMetaName"></div>
+        <div class="d" id="projectMetaSaved"></div>
+      </div>
+    </div>
+  </aside>
+
+  <!-- ═════════ CANVAS ═════════ -->
+  <section class="canvas-wrap">
+    <div class="stage" id="canvasWrap">
+      <div class="view-tabs">
+        <button class="view-tab active" id="tab-side"  onclick="setView('side')">SIDE</button>
+        <button class="view-tab"        id="tab-top"   onclick="setView('top')">TOP</button>
+        <button class="view-tab"        id="tab-front" onclick="setView('front')">FRONT</button>
+        <button class="view-tab"        id="tab-3d"    onclick="setView('3d')">3D</button>
+      </div>
+      <canvas id="mainCanvas"></canvas>
+    </div>
+    <div class="zoom-dock">
+      <div class="zd-top">
+        <span class="zd-title">THROW RATIO</span>
+        <span class="zd-read" id="zd-ratio">—</span>
+        <span class="zd-img" id="zd-img">—</span>
+        <span class="zd-chip" id="zd-chip">—</span>
+        <button class="zd-fit" onclick="fitZoom()">FIT SCREEN</button>
+      </div>
+      <div class="zd-track">
+        <span class="zd-end" id="zd-lo">—</span>
+        <div class="zd-sliderwrap">
+          <input type="range" id="zoomSlider" min="0" max="1000" value="0" aria-label="Throw ratio, low to high">
+          <div class="zd-mark" id="zd-m-screen" title="Ratio that fills the screen"></div>
+          <div class="zd-mark target" id="zd-m-target" title="Ratio that fills the target"></div>
+        </div>
+        <span class="zd-end" id="zd-hi">—</span>
+      </div>
+      <div class="zd-sub" id="zd-sub"></div>
+    </div>
+  </section>
+
+  <!-- ═════════ MATHS PANEL ═════════ -->
+  <aside class="maths-panel" id="mathsPanel"></aside>
+
+  <!-- ═════════ INFO BAR ═════════ -->
+  <footer class="info-bar">
+    <div class="info-item"><div class="info-dot"></div><span>Throw:</span><span class="info-val" id="ib-throw">—</span></div>
+    <div class="info-item"><div class="info-dot orange"></div><span>Ratio:</span><span class="info-val" id="ib-ratio">—</span></div>
+    <div class="info-item"><div class="info-dot orange"></div><span>Lumens:</span><span class="info-val" id="ib-lm">—</span></div>
+    <div class="info-item"><div class="info-dot green"></div><span>Lux:</span><span class="info-val" id="ib-lux">—</span></div>
+    <div class="info-item"><div class="info-dot grey"></div><span>Mount:</span><span class="info-val" id="ib-mount">Floor</span></div>
+    <div class="info-brand">ThrowCAD // Projector Throw Visualiser</div>
+  </footer>
+
+</main>
+
+<div class="notif" id="notif" role="status"></div>
+
+<script>
+'use strict';
+// ═══════════════════════════════════════════════════════════════
+//  ThrowCAD v3.2
+// ═══════════════════════════════════════════════════════════════
+const $ = id => document.getElementById(id);
+const M2FT = 3.28084, M2IN = 39.3701, FT2M = 0.3048;
+const MONO = '"Share Tech Mono","Courier New",monospace';
+const font = (px, bold) => (bold ? 'bold ' : '') + px + 'px ' + MONO;
+
+// All internal values are METRES. Inputs/labels follow the unit selector.
+const S = {
+  unit: 'm', mountMode: 'floor', view: 'side',
+  throwMin: 1.38, throwMax: 2.22, lumens: 5000, aspect: 16/9,
+  screenWidth: 3, screenHeight: 3/(16/9), mountHeight: 3,
+  tdMin: 0, tdMax: 0, dist: 0,            // dist = distance drawn from lens to screen
+  tOn: false, targetEnabled: false, targetWidth: 4,
+  diff: 0, state: 'none',                 // target state: over | under | exact | none
+  distManual: false, zoom: 0, zoomAuto: true,
+  imgW: 0, imgH: 0, wN: 0, wW: 0, rNeed: 0, scrState: 'fills', scrDiff: 0,
+  freezeScl: null, hit: null,
+  angle: 25, auto: true, ready: false
+};
+
+const canvas = $('mainCanvas');
+const ctx = canvas.getContext('2d');
+let W = 1, H = 1;
+
+// ─── Formatting ──────────────────────────────────────────────
+function ftIn(m) {
+  const tot = Math.abs(m) * M2IN;
+  let ft = Math.floor(tot / 12 + 1e-9), inch = tot - ft * 12;
+  if (inch > 11.95) { ft++; inch = 0; }
+  return (m < 0 ? '-' : '') + ft + "' " + inch.toFixed(1) + '"';
+}
+function fd(m) { return S.unit === 'ft' ? ftIn(m) : m.toFixed(2) + ' m'; }
+const toM   = v => S.unit === 'ft' ? v * FT2M : v;
+const fromM = v => S.unit === 'ft' ? v / FT2M : v;
+
+// ─── Canvas sizing (HiDPI aware) ─────────────────────────────
+function fitCanvas() {
+  const r = $('canvasWrap').getBoundingClientRect();
+  W = Math.max(1, Math.floor(r.width));
+  H = Math.max(1, Math.floor(r.height));
+  const dpr = window.devicePixelRatio || 1;
+  canvas.width = Math.round(W * dpr);
+  canvas.height = Math.round(H * dpr);
+  canvas.style.width = W + 'px';
+  canvas.style.height = H + 'px';
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  render();
+}
+new ResizeObserver(fitCanvas).observe($('canvasWrap'));
+
+function render() {
+  S.hit = null;
+  if (!S.ready) { drawEmpty(); return; }
+  if (S.view === '3d') { drawPersp(); return; }   // animation loop keeps it fresh
+  ctx.clearRect(0, 0, W, H);
+  if (S.view === 'side') drawSide();
+  else if (S.view === 'top') drawTop();
+  else drawFront();
+}
+
+function drawEmpty() {
+  ctx.clearRect(0, 0, W, H);
+  ctx.textAlign = 'center';
+  ctx.font = font(11); ctx.fillStyle = 'rgba(0,229,255,0.35)';
+  ctx.fillText('ENTER VALUES — RESULTS RENDER HERE', W / 2, H / 2);
+  ctx.textAlign = 'left';
+}
+
+// ─── UI state ────────────────────────────────────────────────
+function setMount(mode) {
+  S.mountMode = mode;
+  ['floor', 'ceiling', 'down'].forEach(m => $('mount-' + m).classList.toggle('active', m === mode));
+  $('heightLabel').textContent = { floor: 'Lens Height Above Floor', ceiling: 'Lens Drop Below Ceiling', down: 'Mount Height (Lens to Floor)' }[mode];
+  $('heightHint').textContent = mode === 'down'
+    ? 'This is the throw distance. Drag the projector up / down on the canvas.'
+    : 'Drag the projector up / down on the canvas, or type it.';
+  $('distField').style.display = mode === 'down' ? 'none' : 'block';
+  $('ib-mount').textContent = { floor: 'Floor Flat', ceiling: 'Ceiling Inverted', down: 'Ceiling Down' }[mode];
+  if (S.ready) calculate(true);
+}
+
+function setView(v) {
+  S.view = v;
+  ['side', 'top', 'front', '3d'].forEach(t => $('tab-' + t).classList.toggle('active', t === v));
+  canvas.classList.toggle('orbit', v === '3d');
+  if (v === '3d' && S.ready) start3D(); else { stop3D(); render(); }
+}
+
+function updateUnitLabels() {
+  document.querySelectorAll('.ulab').forEach(e => e.textContent = S.unit);
+  $('res-throw-min-u').textContent = $('res-throw-max-u').textContent = $('res-sh-u').textContent = S.unit === 'ft' ? 'feet' : 'metres';
+}
+
+function onUnitChange() {
+  const nu = $('unitSel').value, old = S.unit;
+  if (nu === old) return;
+  ['screenWidth', 'mountHeight', 'targetWidth', 'projDist'].forEach(id => {
+    const v = parseFloat($(id).value);
+    if (!isFinite(v)) return;
+    const m = old === 'ft' ? v * FT2M : v;
+    $(id).value = +(nu === 'ft' ? m / FT2M : m).toFixed(2);
+  });
+  S.unit = nu;
+  updateUnitLabels();
+  if (S.ready) calculate(true);
+}
+
+function chipSet(groupId, inputId, el) {
+  const w = parseFloat(el.dataset.w);
+  $(inputId).value = S.unit === 'ft' ? +(w / FT2M).toFixed(1) : w;
+  document.querySelectorAll('#' + groupId + ' .chip').forEach(c => c.classList.remove('active'));
+  el.classList.add('active');
+  if (S.ready) calculate(true);
+}
+
+function toggleTarget(force) {
+  S.targetEnabled = typeof force === 'boolean' ? force : !S.targetEnabled;
+  $('targetToggle').classList.toggle('on', S.targetEnabled);
+  $('targetToggleLabel').classList.toggle('on', S.targetEnabled);
+  $('targetToggleLabel').textContent = S.targetEnabled ? 'TARGET COMPARISON ON' : 'ENABLE TARGET COMPARISON';
+  $('targetFields').style.display = S.targetEnabled ? 'block' : 'none';
+  if (S.ready) calculate(true);
+}
+
+let notifTimer;
+function showNotif(msg, isErr) {
+  const el = $('notif');
+  el.textContent = msg;
+  el.className = 'notif show' + (isErr ? ' error' : '');
+  clearTimeout(notifTimer);
+  notifTimer = setTimeout(() => el.classList.remove('show'), 2600);
+}
+
+// ─── Maths panel (built once) ────────────────────────────────
+const cell = (id, u, cls) => `<div class="maths-cell ${cls || ''}"><div class="mc-unit">${u}</div><div class="mc-val" id="${id}">—</div></div>`;
+const mrow = (label, cells) => `<div class="maths-row"><div class="maths-row-label">${label}</div><div class="maths-triple">${cells}</div></div>`;
+const tri  = (k, label) => mrow(label, cell(`mp-${k}-m`, 'Metres', 'primary') + cell(`mp-${k}-ft`, 'Feet') + cell(`mp-${k}-in`, 'Inches'));
+const mdiv = t => `<div class="maths-divider">${t}</div>`;
+
+$('mathsPanel').innerHTML =
+  `<div class="warn-box" id="warnBox"><b>⚠ CHECK</b><div id="warnList"></div></div>` +
+  mdiv('Throw Distance') + tri('tmin', 'Throw distance — min') + tri('tmax', 'Throw distance — max') +
+  mdiv('Screen Dimensions') + tri('sw', 'Screen width') + tri('sh', 'Screen height') + tri('sd', 'Screen diagonal') +
+  mrow('Screen area', cell('mp-area-m', 'm²', 'primary') + cell('mp-area-ft', 'ft²') + cell('mp-area-in', 'in²')) +
+  mdiv('Projector Position') + tri('dist', 'Projector distance') + tri('mh', 'Lens height / drop') +
+  mdiv('Lens Zoom (low → high ratio)') +
+  mrow('Throw ratio', cell('mp-zoom', 'Set', 'primary') + cell('mp-need', 'To fill screen') + cell('mp-lens', 'Lens range')) +
+  tri('iw', 'Image width now') + tri('ih', 'Image height now') +
+  mrow('Image range at this distance', cell('mp-wmin', 'Tele (m)', 'primary') + cell('mp-wmax', 'Wide (m)') + cell('mp-wmaxft', 'Wide (ft)')) +
+  mdiv('Luminance') +
+  mrow('Surface lux', cell('mp-lux', 'Lux (lm/m²)', 'primary wide') + cell('mp-fc', 'Foot-candles')) +
+  mrow('Foot-Lamberts (gain 1.0)', cell('mp-fl', 'fL (SMPTE 14–22)', 'primary wide') + cell('mp-nit', 'cd/m² (nits)')) +
+  `<div id="targetMathsBlock" style="display:none">` +
+    mdiv('Target Comparison') +
+    `<div class="target-status"><div class="target-dot" id="targetDot"></div><div><div class="target-diff" id="targetDiffText">—</div><div class="target-sub" id="targetSubText"></div></div></div>` +
+    tri('tw', 'Target width') + tri('diff', 'Width difference') +
+    mrow('Throw needed for target', cell('mp-tneed-min', 'Min (m)', 'primary') + cell('mp-tneed-max', 'Max (m)') + cell('mp-tneed-ft', 'Max (ft)')) +
+  `</div>` +
+  `<div class="maths-foot">ThrowCAD v3.2 // maths panel always shows m / ft / in</div>`;
+
+function setTri(k, m, signed) {
+  const sg = signed ? (m >= 0 ? '+' : '−') : '', a = signed ? Math.abs(m) : m;
+  $(`mp-${k}-m`).textContent  = sg + a.toFixed(2);
+  $(`mp-${k}-ft`).textContent = sg + (a * M2FT).toFixed(2);
+  $(`mp-${k}-in`).textContent = sg + (a * M2IN).toFixed(1);
+}
+
+// ─── CALCULATE ───────────────────────────────────────────────
+const clamp = (v, a, b) => Math.min(b, Math.max(a, v));
+
+function calculate(silent) {
+  const tMin = parseFloat($('throwMin').value), tMax = parseFloat($('throwMax').value);
+  const lm = parseFloat($('lumens').value), asp = parseFloat($('aspectRatio').value);
+  const sw = toM(parseFloat($('screenWidth').value)), mh = toM(parseFloat($('mountHeight').value));
+  const tw = toM(parseFloat($('targetWidth').value));
+  const dIn = toM(parseFloat($('projDist').value));
+
+  if ([tMin, tMax, lm, asp, sw, mh].some(v => !isFinite(v) || v <= 0)) {
+    if (!silent) showNotif('Enter positive values in every field', true);
+    return false;
+  }
+  if (tMin > tMax) { if (!silent) showNotif('Throw min must be ≤ throw max', true); return false; }
+
+  const mode = S.mountMode;
+  const sh = sw / asp, tdMin = tMin * sw, tdMax = tMax * sw;
+
+  // Projector position: down mode = mount height; otherwise typed / dragged / auto (max throw)
+  let D;
+  if (mode === 'down') D = mh;
+  else if (S.distManual && isFinite(dIn) && dIn > 0) D = dIn;
+  else D = tdMax;
+
+  // Zoom: auto-fit to the screen (clamped to the lens), or the value the slider holds
+  const rNeed = D / sw, rFit = clamp(rNeed, tMin, tMax);
+  if (S.zoomAuto || !isFinite(S.zoom) || S.zoom <= 0) S.zoom = rFit; else S.zoom = clamp(S.zoom, tMin, tMax);
+
+  const iw = D / S.zoom, ih = iw / asp;             // image actually projected
+  const area = iw * ih, lux = lm / area, fl = lux * 0.0929;
+  const scrDiag = Math.hypot(sw, sh), scrArea = sw * sh;
+
+  Object.assign(S, {
+    throwMin: tMin, throwMax: tMax, lumens: lm, aspect: asp,
+    screenWidth: sw, screenHeight: sh, mountHeight: mh, tdMin, tdMax, dist: D,
+    imgW: iw, imgH: ih, wN: D / tMax, wW: D / tMin, rNeed, ready: true
+  });
+  const dScr = iw - sw;
+  S.scrDiff = dScr;
+  S.scrState = Math.abs(dScr) < 0.01 ? 'fills' : dScr > 0 ? 'over' : 'under';
+
+  S.tOn = S.targetEnabled && isFinite(tw) && tw > 0;
+  S.targetWidth = S.tOn ? tw : 0;
+  S.diff = S.tOn ? iw - tw : 0;
+  S.state = !S.tOn ? 'none' : Math.abs(S.diff) < 0.005 ? 'exact' : S.diff > 0 ? 'over' : 'under';
+
+  if (mode !== 'down' && !S.distManual) $('projDist').value = +fromM(D).toFixed(2);
+
+  // Warnings
+  const warn = [];
+  const hh = Math.max(ih, sh) / 2;
+  if (mode === 'floor'   && mh - hh < 0) warn.push(`Image bottom is ${fd(hh - mh)} below floor level.`);
+  if (mode === 'ceiling' && mh - hh < 0) warn.push(`Image top is ${fd(hh - mh)} above the ceiling.`);
+  if (D < tdMin - 1e-6) warn.push(`Projector is ${fd(tdMin - D)} too close to fill this screen. Move back to ${fd(tdMin)}–${fd(tdMax)}.`);
+  else if (D > tdMax + 1e-6) warn.push(`Projector is ${fd(D - tdMax)} too far to fill this screen. Move closer to ${fd(tdMin)}–${fd(tdMax)}.`);
+  S.warnings = warn;
+  $('warnBox').classList.toggle('show', warn.length > 0);
+  $('warnList').innerHTML = warn.map(w => `<div>• ${w}</div>`).join('');
+
+  // Sidebar results (distances/screen = the screen you asked for; luminance = the image actually projected)
+  const fv = v => (S.unit === 'ft' ? v / FT2M : v).toFixed(S.unit === 'ft' ? 1 : 2);
+  $('res-throw-min').textContent = fv(tdMin);
+  $('res-throw-max').textContent = fv(tdMax);
+  $('res-sh').textContent = fv(sh);
+  $('res-diag').textContent = (scrDiag * M2IN).toFixed(0);
+  $('res-area').textContent = scrArea.toFixed(2);
+  $('res-fl').textContent = fl.toFixed(1);
+  $('luxBar').style.width = Math.min(100, lux / 20) + '%';
+  $('luxVal').textContent = Math.round(lux) + ' lux on projected image';
+  $('luxDesc').textContent =
+    lux < 200 ? 'Dim – dark room only' : lux < 500 ? 'Moderate – controlled lighting' :
+    lux < 1000 ? 'Good – some ambient OK' : lux < 2000 ? 'Excellent – bright environments' : 'Very high – outdoor capable';
+
+  $('ib-throw').textContent = tdMin.toFixed(2) + ' – ' + tdMax.toFixed(2) + ' m';
+  $('ib-ratio').textContent = S.zoom.toFixed(2) + ':1';
+  $('ib-lm').textContent = lm.toLocaleString() + ' lm';
+  $('ib-lux').textContent = Math.round(lux) + ' lux';
+
+  // Maths panel
+  setTri('tmin', tdMin); setTri('tmax', tdMax);
+  setTri('sw', sw); setTri('sh', sh); setTri('sd', scrDiag);
+  $('mp-area-m').textContent = scrArea.toFixed(3);
+  $('mp-area-ft').textContent = (scrArea * 10.7639).toFixed(2);
+  $('mp-area-in').textContent = (scrArea * 1550.0031).toFixed(0);
+  setTri('dist', D); setTri('mh', mh);
+  $('mp-zoom').textContent = S.zoom.toFixed(2) + ':1';
+  $('mp-need').textContent = rNeed.toFixed(2) + ':1';
+  $('mp-lens').textContent = tMin.toFixed(2) + '–' + tMax.toFixed(2);
+  setTri('iw', iw); setTri('ih', ih);
+  $('mp-wmin').textContent = S.wN.toFixed(2);
+  $('mp-wmax').textContent = S.wW.toFixed(2);
+  $('mp-wmaxft').textContent = (S.wW * M2FT).toFixed(2);
+  $('mp-lux').textContent = Math.round(lux).toLocaleString();
+  $('mp-fc').textContent = fl.toFixed(1);
+  $('mp-fl').textContent = fl.toFixed(2);
+  $('mp-nit').textContent = (fl * 3.426).toFixed(1);
+
+  $('targetMathsBlock').style.display = S.tOn ? 'block' : 'none';
+  if (S.tOn) {
+    setTri('tw', tw); setTri('diff', S.diff, true);
+    $('mp-tneed-min').textContent = (tMin * tw).toFixed(2);
+    $('mp-tneed-max').textContent = (tMax * tw).toFixed(2);
+    $('mp-tneed-ft').textContent = (tMax * tw * M2FT).toFixed(1);
+    const pct = Math.abs((iw / tw - 1) * 100).toFixed(1), ad = Math.abs(S.diff);
+    $('targetDot').className = 'target-dot ' + S.state;
+    const tx = $('targetDiffText'); tx.className = 'target-diff ' + S.state;
+    if (S.state === 'exact') { tx.textContent = '✓ ON TARGET'; $('targetSubText').textContent = 'Projected image matches the target width'; }
+    else if (S.state === 'over') { tx.textContent = `▲ ${ad.toFixed(2)} m OVER (${pct}%)`; $('targetSubText').textContent = `Image is wider than the ${tw.toFixed(2)} m target`; }
+    else { tx.textContent = `▼ ${ad.toFixed(2)} m UNDER (${pct}%)`; $('targetSubText').textContent = `Image falls short of the ${tw.toFixed(2)} m target`; }
+  }
+
+  updateDock();
+  if (S.view === '3d') start3D(); else render();
+  if (!silent) showNotif('Calculations complete ✓');
+  return true;
+}
+
+// ─── Zoom dock (throw-ratio slider, low → high) ──────────────
+function updateDock() {
+  const tMin = S.throwMin, tMax = S.throwMax, span = tMax - tMin, fixed = span < 1e-6;
+  const pos = r => fixed ? 0 : clamp((r - tMin) / span, 0, 1);
+  $('zd-lo').textContent = tMin.toFixed(2);
+  $('zd-hi').textContent = tMax.toFixed(2);
+  const sl = $('zoomSlider'); sl.disabled = fixed; sl.value = Math.round(pos(S.zoom) * 1000);
+  $('zd-ratio').textContent = S.zoom.toFixed(2) + ':1';
+  $('zd-img').textContent = 'Image ' + fd(S.imgW) + ' × ' + fd(S.imgH);
+
+  const out = S.rNeed < tMin - 1e-6 || S.rNeed > tMax + 1e-6, chip = $('zd-chip');
+  chip.className = 'zd-chip ' + S.scrState;
+  const d = fd(Math.abs(S.scrDiff));
+  chip.textContent = (S.scrState === 'fills' ? '✓ FILLS SCREEN' : S.scrState === 'over' ? '▲ SPILLS +' + d : '▼ SHORT −' + d) + (out ? ' · LENS LIMIT' : '');
+
+  const place = (el, r, show) => {
+    el.style.display = show && !fixed ? 'block' : 'none';
+    const p = pos(r) * 100;
+    el.style.left = `calc(${p}% + ${(0.5 - p / 100) * 14}px)`;
+    el.classList.toggle('out', r < tMin - 1e-6 || r > tMax + 1e-6);
+  };
+  place($('zd-m-screen'), S.rNeed, true);
+  place($('zd-m-target'), S.tOn ? S.dist / S.targetWidth : tMin, S.tOn);
+
+  $('zd-sub').textContent = `At ${fd(S.dist)} the lens covers ${fd(S.wN)} (tele) → ${fd(S.wW)} (wide) · screen needs ${S.rNeed.toFixed(2)}:1` +
+    (S.tOn ? ` · target needs ${(S.dist / S.targetWidth).toFixed(2)}:1` : '');
+}
+
+function onZoomSlider() {
+  const v = parseInt($('zoomSlider').value, 10) / 1000;
+  S.zoomAuto = false;
+  S.zoom = S.throwMin + v * (S.throwMax - S.throwMin);
+  calculate(true);
+}
+function fitZoom() { S.zoomAuto = true; calculate(true); }
+function resetDist() { S.distManual = false; calculate(true); }
+
+// ─── Drawing helpers ─────────────────────────────────────────
+const tcol = a => S.state === 'under' ? `rgba(255,59,59,${a})` : S.state === 'over' ? `rgba(127,255,0,${a})` : `rgba(0,229,255,${a})`;
+const stateLabel = () => S.state === 'over' ? '▲ OVER' : S.state === 'under' ? '▼ UNDER' : '✓ ON TARGET';
+const diffLabel = () => (S.diff >= 0 ? '+' : '−') + fd(Math.abs(S.diff));
+
+function title(t) { ctx.font = font(10); ctx.fillStyle = 'rgba(0,229,255,0.5)'; ctx.textAlign = 'left'; ctx.fillText(t, 12, W < 620 ? 62 : 20); }
+
+function dimLineH(x1, x2, y, label, color, dashed) {
+  ctx.save(); ctx.strokeStyle = color; ctx.fillStyle = color; ctx.lineWidth = 1;
+  ctx.setLineDash(dashed ? [4, 4] : []);
+  ctx.beginPath(); ctx.moveTo(x1, y - 5); ctx.lineTo(x1, y + 5); ctx.moveTo(x2, y - 5); ctx.lineTo(x2, y + 5); ctx.moveTo(x1, y); ctx.lineTo(x2, y); ctx.stroke();
+  ctx.setLineDash([]);
+  const d = Math.sign(x2 - x1) || 1;
+  ctx.beginPath(); ctx.moveTo(x1 + 8 * d, y - 4); ctx.lineTo(x1, y); ctx.lineTo(x1 + 8 * d, y + 4); ctx.moveTo(x2 - 8 * d, y - 4); ctx.lineTo(x2, y); ctx.lineTo(x2 - 8 * d, y + 4); ctx.stroke();
+  ctx.font = font(10); ctx.textAlign = 'center'; ctx.fillText(label, (x1 + x2) / 2, y - 7);
+  ctx.restore();
+}
+function dimLineV(y1, y2, x, label, side) {
+  ctx.save(); ctx.strokeStyle = 'rgba(200,212,224,0.45)'; ctx.fillStyle = 'rgba(200,212,224,0.65)'; ctx.lineWidth = 1;
+  ctx.beginPath(); ctx.moveTo(x - 5, y1); ctx.lineTo(x + 5, y1); ctx.moveTo(x, y1); ctx.lineTo(x, y2); ctx.moveTo(x - 5, y2); ctx.lineTo(x + 5, y2); ctx.stroke();
+  ctx.translate(x + (side === 'left' ? -9 : 13), (y1 + y2) / 2); ctx.rotate(Math.PI / 2);
+  ctx.font = font(10); ctx.textAlign = 'center'; ctx.fillText(label, 0, 0);
+  ctx.restore();
+}
+function refLine(y, label, above) {
+  ctx.save(); ctx.strokeStyle = 'rgba(90,106,122,0.45)'; ctx.lineWidth = 1; ctx.setLineDash([10, 6]);
+  ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(W, y); ctx.stroke(); ctx.setLineDash([]);
+  ctx.font = font(9); ctx.fillStyle = 'rgba(120,136,152,0.8)'; ctx.textAlign = 'left';
+  ctx.fillText(label, 12, y + (above ? -6 : 14));
+  ctx.restore();
+}
+function beamGrad(x1, y1, x2, y2) {
+  const g = ctx.createLinearGradient(x1, y1, x2, y2);
+  g.addColorStop(0, 'rgba(0,229,255,0.45)'); g.addColorStop(0.4, 'rgba(0,229,255,0.15)'); g.addColorStop(1, 'rgba(0,229,255,0.05)');
+  return g;
+}
+function projBodyH(lensX, y, inv) {   // lens sits exactly on (lensX, y)
+  ctx.save(); ctx.translate(lensX - 20, y); if (inv) ctx.scale(1, -1);
+  ctx.fillStyle = '#1a2230'; ctx.strokeStyle = 'rgba(0,229,255,0.6)'; ctx.lineWidth = 1.5;
+  ctx.fillRect(-22, -12, 44, 24); ctx.strokeRect(-22, -12, 44, 24);
+  ctx.beginPath(); ctx.arc(20, 0, 6, 0, 7); ctx.fillStyle = 'rgba(0,229,255,0.35)'; ctx.fill(); ctx.strokeStyle = 'rgba(0,229,255,0.9)'; ctx.stroke();
+  ctx.beginPath(); ctx.arc(20, 0, 9, 0, 7); ctx.strokeStyle = 'rgba(0,229,255,0.15)'; ctx.stroke();
+  if (!inv) { ctx.strokeStyle = 'rgba(0,229,255,0.35)'; ctx.lineWidth = 1; [-10, 10].forEach(x => { ctx.beginPath(); ctx.moveTo(x, 12); ctx.lineTo(x, 18); ctx.stroke(); }); }
+  ctx.restore();
+}
+function projBodyDown(x, lensY) {
+  ctx.save(); ctx.translate(x, lensY - 16);
+  ctx.fillStyle = '#1a2230'; ctx.strokeStyle = 'rgba(0,229,255,0.6)'; ctx.lineWidth = 1.5;
+  ctx.fillRect(-22, -8, 44, 20); ctx.strokeRect(-22, -8, 44, 20);
+  ctx.beginPath(); ctx.arc(0, 16, 6, 0, 7); ctx.fillStyle = 'rgba(0,229,255,0.35)'; ctx.fill(); ctx.strokeStyle = 'rgba(0,229,255,0.9)'; ctx.stroke();
+  ctx.beginPath(); ctx.arc(0, 16, 9, 0, 7); ctx.strokeStyle = 'rgba(0,229,255,0.15)'; ctx.stroke();
+  ctx.strokeStyle = 'rgba(0,229,255,0.4)'; ctx.lineWidth = 1;
+  ctx.beginPath(); ctx.moveTo(-8, -8); ctx.lineTo(-8, -16); ctx.moveTo(8, -8); ctx.lineTo(8, -16); ctx.moveTo(-8, -16); ctx.lineTo(8, -16); ctx.stroke();
+  ctx.restore();
+}
+function warnText(x, y) {
+  if (!S.warnings.length) return;
+  ctx.save(); ctx.font = font(10, true); ctx.fillStyle = 'rgba(255,90,90,0.95)'; ctx.textAlign = 'left';
+  S.warnings.forEach((w, i) => ctx.fillText('⚠ ' + (w.length > 70 ? w.slice(0, 68) + '…' : w), x, y + i * 14));
+  ctx.restore();
+}
+
+// Target bracket on a vertical screen edge (side view = height, top view = width)
+function targetSpanV(x, yc, half, ext) {
+  ctx.save();
+  const lo = Math.min(half, ext), hi = Math.max(half, ext);
+  if (S.state !== 'exact') { ctx.fillStyle = tcol(0.22); ctx.fillRect(x - 5, yc - hi, 13, hi - lo); ctx.fillRect(x - 5, yc + lo, 13, hi - lo); }
+  ctx.strokeStyle = tcol(0.95); ctx.lineWidth = 2; ctx.setLineDash([6, 3]);
+  ctx.beginPath(); ctx.moveTo(x - 12, yc - half); ctx.lineTo(x + 20, yc - half); ctx.moveTo(x - 12, yc + half); ctx.lineTo(x + 20, yc + half); ctx.stroke();
+  ctx.setLineDash([]); ctx.beginPath(); ctx.moveTo(x + 15, yc - half); ctx.lineTo(x + 25, yc - half); ctx.lineTo(x + 25, yc + half); ctx.lineTo(x + 15, yc + half); ctx.stroke();
+  ctx.fillStyle = tcol(0.95); ctx.textAlign = 'left';
+  ctx.font = font(10, true); ctx.fillText('TARGET ' + stateLabel(), x + 31, yc - half - 4);
+  ctx.font = font(9); ctx.fillText(diffLabel(), x + 31, yc - half + 9);
+  ctx.restore();
+}
+// Target bracket on a horizontal screen edge (down view)
+function targetSpanH(xc, y, half, ext) {
+  ctx.save();
+  const lo = Math.min(half, ext), hi = Math.max(half, ext);
+  if (S.state !== 'exact') { ctx.fillStyle = tcol(0.22); ctx.fillRect(xc - hi, y - 5, hi - lo, 13); ctx.fillRect(xc + lo, y - 5, hi - lo, 13); }
+  ctx.strokeStyle = tcol(0.95); ctx.lineWidth = 2; ctx.setLineDash([6, 3]);
+  ctx.beginPath(); ctx.moveTo(xc - half, y - 12); ctx.lineTo(xc - half, y + 20); ctx.moveTo(xc + half, y - 12); ctx.lineTo(xc + half, y + 20); ctx.stroke();
+  ctx.setLineDash([]); ctx.beginPath(); ctx.moveTo(xc - half, y + 15); ctx.lineTo(xc - half, y + 25); ctx.lineTo(xc + half, y + 25); ctx.lineTo(xc + half, y + 15); ctx.stroke();
+  ctx.fillStyle = tcol(0.95); ctx.textAlign = 'center';
+  ctx.font = font(10, true); ctx.fillText('TARGET ' + stateLabel() + '  ' + diffLabel(), xc, y + 42);
+  ctx.restore();
+}
+
+// ─── Shared drawing bits for the movable-projector views ─────
+const stCol = (st, a) => st === 'under' ? `rgba(255,59,59,${a})` : st === 'over' ? `rgba(127,255,0,${a})` : `rgba(0,229,255,${a})`;
+const WARN_Y = () => W < 620 ? 84 : 42;
+
+function limitLabel(text, x, y, align) {
+  ctx.save(); ctx.font = font(9); ctx.fillStyle = 'rgba(255,107,0,0.9)'; ctx.textAlign = align || 'right'; ctx.fillText(text, x, y); ctx.restore();
+}
+function orangeLine(x1, y1, x2, y2) {
+  ctx.save(); ctx.strokeStyle = 'rgba(255,107,0,0.75)'; ctx.lineWidth = 1.2; ctx.setLineDash([5, 4]);
+  ctx.beginPath(); ctx.moveTo(x1, y1); ctx.lineTo(x2, y2); ctx.stroke(); ctx.restore();
+}
+// Coloured spill / short markers where the projected image meets the screen edge
+function edgeMarks(sx, py, scrHalf, imgHalf, vertical, dir) {
+  if (S.scrState === 'fills') return;
+  ctx.save(); ctx.fillStyle = stCol(S.scrState, 0.55);
+  const lo = Math.min(scrHalf, imgHalf), len = Math.abs(imgHalf - scrHalf);
+  if (vertical) { ctx.fillRect(sx - 5, py - lo - len, 10, len); ctx.fillRect(sx - 5, py + lo, 10, len); }
+  else { ctx.fillRect(sx - lo - len, py - 5, len, 10); ctx.fillRect(sx + lo, py - 5, len, 10); }
+  ctx.restore();
+}
+function grabHint(x, y) {
+  ctx.save(); ctx.font = font(9); ctx.fillStyle = 'rgba(0,229,255,0.55)'; ctx.textAlign = 'center';
+  ctx.fillText('⇔ DRAG', x, y); ctx.restore();
+}
+
+// ─── SIDE VIEW ───────────────────────────────────────────────
+function drawSide() {
+  S.hit = null;
+  if (S.mountMode === 'down') { drawSideDown(); return; }
+  const inv = S.mountMode === 'ceiling';
+  const PADR = Math.min(190, W * 0.34), PADL = 70, PADT = W < 620 ? 100 : 70, PADB = 100;
+  const sx = W - PADR, D = S.dist, asp = S.aspect;
+  const E = Math.max(S.tdMax, D, 0.5);
+  const hMax = Math.max(S.screenHeight, S.imgH, S.wW / asp);
+  let scl = Math.min(Math.max(40, sx - PADL) / E, Math.max(40, H - PADT - PADB) / (S.mountHeight + hMax / 2 + 0.15));
+  if (S.freezeScl) scl = S.freezeScl;
+
+  const anchorY = inv ? PADT : H - PADB;
+  const py = inv ? anchorY + S.mountHeight * scl : anchorY - S.mountHeight * scl;
+  const px = sx - D * scl;
+  const ih2 = S.imgH / 2 * scl, sh2 = S.screenHeight / 2 * scl;
+  const wide2 = S.wW / asp / 2 * scl, tele2 = S.wN / asp / 2 * scl;
+
+  refLine(anchorY, inv ? 'CEILING' : 'FLOOR', inv);
+  dimLineV(py, anchorY, Math.max(26, px - 56), fd(S.mountHeight), 'left');
+
+  // current image beam
+  ctx.beginPath(); ctx.moveTo(px, py); ctx.lineTo(sx, py - ih2); ctx.lineTo(sx, py + ih2); ctx.closePath();
+  ctx.fillStyle = beamGrad(px, py, sx, py); ctx.fill();
+  ctx.strokeStyle = 'rgba(0,229,255,0.8)'; ctx.lineWidth = 1.6;
+  ctx.beginPath(); ctx.moveTo(px, py); ctx.lineTo(sx, py - ih2); ctx.moveTo(px, py); ctx.lineTo(sx, py + ih2); ctx.stroke();
+
+  // lens limits: widest (low ratio) and narrowest (high ratio) images from here
+  if (S.wW - S.wN > 1e-6) {
+    orangeLine(px, py, sx, py - wide2); orangeLine(px, py, sx, py + wide2);
+    orangeLine(px, py, sx, py - tele2); orangeLine(px, py, sx, py + tele2);
+    limitLabel('WIDE ' + S.throwMin.toFixed(2) + ':1', sx - 8, py - wide2 - 6);
+    limitLabel('TELE ' + S.throwMax.toFixed(2) + ':1', sx - 8, py - tele2 - 6);
+  }
+
+  // screen + spill/short markers
+  const g = ctx.createLinearGradient(sx, py - sh2, sx, py + sh2);
+  g.addColorStop(0, 'rgba(200,212,224,0.04)'); g.addColorStop(0.5, 'rgba(200,212,224,0.18)'); g.addColorStop(1, 'rgba(200,212,224,0.04)');
+  ctx.fillStyle = g; ctx.fillRect(sx, py - sh2, 8, sh2 * 2);
+  ctx.strokeStyle = 'rgba(200,212,224,0.9)'; ctx.lineWidth = 2.5; ctx.beginPath(); ctx.moveTo(sx, py - sh2); ctx.lineTo(sx, py + sh2); ctx.stroke();
+  edgeMarks(sx, py, sh2, ih2, true);
+  if (!S.tOn) { ctx.font = font(10); ctx.fillStyle = 'rgba(200,212,224,0.65)'; ctx.textAlign = 'left'; ctx.fillText('SCREEN ' + fd(S.screenHeight), sx + 14, py + 4); }
+  if (S.tOn) targetSpanV(sx, py, S.targetWidth / S.aspect / 2 * scl, ih2);
+
+  projBodyH(px, py, inv);
+  grabHint(px - 20, py + (inv ? 34 : -22));
+  S.hit = { kind: 'side', x: px - 20, y: py, r: 38, lx: px, ly: py, scl, sx, anchorY, inv, padT: PADT };
+
+  // distance + fill window
+  const dy = H - 68;
+  dimLineH(px, sx, dy, fd(D), '#00e5ff', false);
+  const wa = sx - S.tdMax * scl, wb = sx - S.tdMin * scl;
+  if (S.tdMax - S.tdMin > 1e-6) dimLineH(wa, wb, dy + 24, 'FILLS SCREEN FROM ' + fd(S.tdMax) + ' – ' + fd(S.tdMin), '#ff6b00', true);
+  else { ctx.strokeStyle = '#ff6b00'; ctx.beginPath(); ctx.moveTo(wa, dy + 18); ctx.lineTo(wa, dy + 30); ctx.stroke(); }
+
+  title('SIDE ELEVATION — ' + (inv ? 'CEILING INVERTED' : 'FLOOR / TABLE') + '  ·  drag the projector');
+  warnText(12, WARN_Y());
+}
+
+function drawSideDown() {
+  const PADT = W < 620 ? 100 : 76, PADB = 150, D = S.dist;
+  const floorY = H - PADB, PADXs = Math.min(120, W * 0.2);
+  let scl = Math.min(Math.max(40, floorY - PADT - 40) / Math.max(D, 0.5), Math.max(60, W - PADXs * 2) / Math.max(S.wW, S.screenWidth, S.imgW, S.targetWidth, 0.5));
+  if (S.freezeScl) scl = S.freezeScl;
+  const px = W / 2, py = floorY - D * scl;
+  const iw2 = S.imgW / 2 * scl, sw2 = S.screenWidth / 2 * scl, wide2 = S.wW / 2 * scl, tele2 = S.wN / 2 * scl;
+
+  refLine(py - 34, 'CEILING', true);
+  refLine(floorY + 6, 'FLOOR', false);
+
+  ctx.beginPath(); ctx.moveTo(px, py); ctx.lineTo(px - iw2, floorY); ctx.lineTo(px + iw2, floorY); ctx.closePath();
+  ctx.fillStyle = beamGrad(px, py, px, floorY); ctx.fill();
+  ctx.strokeStyle = 'rgba(0,229,255,0.8)'; ctx.lineWidth = 1.6;
+  ctx.beginPath(); ctx.moveTo(px, py); ctx.lineTo(px - iw2, floorY); ctx.moveTo(px, py); ctx.lineTo(px + iw2, floorY); ctx.stroke();
+
+  if (S.wW - S.wN > 1e-6) {
+    [wide2, tele2].forEach(w => { orangeLine(px, py, px - w, floorY); orangeLine(px, py, px + w, floorY); });
+    limitLabel('WIDE ' + S.throwMin.toFixed(2) + ':1', px + wide2, floorY - 8, 'left');
+    limitLabel('TELE ' + S.throwMax.toFixed(2) + ':1', px + tele2, floorY - 8, 'right');
+  }
+
+  ctx.fillStyle = 'rgba(200,212,224,0.12)'; ctx.fillRect(px - sw2, floorY - 3, sw2 * 2, 6);
+  ctx.strokeStyle = 'rgba(200,212,224,0.9)'; ctx.lineWidth = 2.5; ctx.beginPath(); ctx.moveTo(px - sw2, floorY); ctx.lineTo(px + sw2, floorY); ctx.stroke();
+  edgeMarks(px, floorY, sw2, iw2, false);
+  ctx.font = font(10); ctx.fillStyle = 'rgba(200,212,224,0.7)'; ctx.textAlign = 'center';
+  ctx.fillText('SCREEN ' + fd(S.screenWidth) + '   ·   IMAGE ' + fd(S.imgW), px, floorY + 28);
+  if (S.tOn) targetSpanH(px, floorY + 34, S.targetWidth / 2 * scl, iw2);
+
+  projBodyDown(px, py);
+  ctx.save(); ctx.font = font(9); ctx.fillStyle = 'rgba(0,229,255,0.55)'; ctx.textAlign = 'left'; ctx.fillText('⇕ DRAG', px + 30, py + 4); ctx.restore();
+  S.hit = { kind: 'down', x: px, y: py - 6, r: 38, lx: px, ly: py, scl, anchorY: floorY, padT: PADT };
+
+  dimLineV(py, floorY, Math.min(W - 40, px + Math.max(wide2, sw2) + 50), fd(D));
+  title('SIDE ELEVATION — CEILING DOWN  ·  drag the projector up / down');
+  warnText(12, WARN_Y());
+}
+
+// ─── TOP VIEW ────────────────────────────────────────────────
+function drawTop() {
+  S.hit = null;
+  if (S.mountMode === 'down') { drawFront(true); return; }
+  const PADR = Math.min(190, W * 0.34), PADL = 70, PADV = 100, D = S.dist;
+  const sx = W - PADR, py = H / 2;
+  const E = Math.max(S.tdMax, D, 0.5);
+  const wMax = Math.max(S.screenWidth, S.imgW, S.wW, S.targetWidth);
+  let scl = Math.min(Math.max(40, sx - PADL) / E, Math.max(40, H - PADV * 2) / wMax);
+  if (S.freezeScl) scl = S.freezeScl;
+  const px = sx - D * scl;
+  const iw2 = S.imgW / 2 * scl, sw2 = S.screenWidth / 2 * scl, wide2 = S.wW / 2 * scl, tele2 = S.wN / 2 * scl;
+
+  ctx.beginPath(); ctx.moveTo(px, py); ctx.lineTo(sx, py - iw2); ctx.lineTo(sx, py + iw2); ctx.closePath();
+  ctx.fillStyle = beamGrad(px, py, sx, py); ctx.fill();
+  ctx.strokeStyle = 'rgba(0,229,255,0.8)'; ctx.lineWidth = 1.6;
+  ctx.beginPath(); ctx.moveTo(px, py); ctx.lineTo(sx, py - iw2); ctx.moveTo(px, py); ctx.lineTo(sx, py + iw2); ctx.stroke();
+  ctx.strokeStyle = 'rgba(0,229,255,0.12)'; ctx.setLineDash([8, 8]); ctx.beginPath(); ctx.moveTo(px, py); ctx.lineTo(sx + 20, py); ctx.stroke(); ctx.setLineDash([]);
+
+  if (S.wW - S.wN > 1e-6) {
+    orangeLine(px, py, sx, py - wide2); orangeLine(px, py, sx, py + wide2);
+    orangeLine(px, py, sx, py - tele2); orangeLine(px, py, sx, py + tele2);
+    limitLabel('WIDE ' + S.throwMin.toFixed(2) + ':1', sx - 8, py - wide2 - 6);
+    limitLabel('TELE ' + S.throwMax.toFixed(2) + ':1', sx - 8, py - tele2 - 6);
+  }
+
+  ctx.fillStyle = 'rgba(200,212,224,0.1)'; ctx.fillRect(sx, py - sw2, 8, sw2 * 2);
+  ctx.strokeStyle = 'rgba(200,212,224,0.9)'; ctx.lineWidth = 2.5; ctx.beginPath(); ctx.moveTo(sx, py - sw2); ctx.lineTo(sx, py + sw2); ctx.stroke();
+  edgeMarks(sx, py, sw2, iw2, true);
+
+  const half = Math.atan2(S.imgW / 2, D) * 180 / Math.PI;
+  ctx.font = font(10); ctx.fillStyle = 'rgba(0,229,255,0.6)'; ctx.textAlign = 'left';
+  ctx.fillText('∠ ' + half.toFixed(1) + '° half-angle  (' + (half * 2).toFixed(1) + '° total)', Math.max(12, px + 10), py - Math.max(iw2, wide2) - 28);
+
+  ctx.fillStyle = '#1a2230'; ctx.strokeStyle = 'rgba(0,229,255,0.55)'; ctx.lineWidth = 1.5;
+  ctx.fillRect(px - 26, py - 10, 26, 20); ctx.strokeRect(px - 26, py - 10, 26, 20);
+  ctx.beginPath(); ctx.arc(px - 4, py, 5, 0, 7); ctx.fillStyle = 'rgba(0,229,255,0.4)'; ctx.fill();
+  grabHint(px - 13, py + 28);
+  S.hit = { kind: 'top', x: px - 13, y: py, r: 34, lx: px, ly: py, scl, sx };
+
+  const dy = H - 68;
+  dimLineH(px, sx, dy, fd(D), '#00e5ff', false);
+  const wa = sx - S.tdMax * scl, wb = sx - S.tdMin * scl;
+  if (S.tdMax - S.tdMin > 1e-6) dimLineH(wa, wb, dy + 24, 'FILLS SCREEN FROM ' + fd(S.tdMax) + ' – ' + fd(S.tdMin), '#ff6b00', true);
+  dimLineV(py - sw2, py + sw2, sx + (S.tOn ? 150 : 34), fd(S.screenWidth));
+  if (S.tOn) targetSpanV(sx, py, S.targetWidth / 2 * scl, iw2);
+  title('PLAN VIEW (TOP DOWN) — ' + (S.mountMode === 'ceiling' ? 'CEILING INVERTED' : 'FLOOR / TABLE') + '  ·  drag the projector');
+  warnText(12, WARN_Y());
+}
+
+// ─── FRONT VIEW — image vs screen / target (green = over, red = under) ─
+function drawFront(plan) {
+  const sw = S.screenWidth, sh = S.screenHeight, iw = S.imgW, ih = S.imgH;
+  const tw = S.tOn ? S.targetWidth : 0, th = tw / S.aspect;
+  const ww = S.wW, wh = ww / S.aspect, nw = S.wN, nh = nw / S.aspect;
+  const PADX = Math.min(120, W * 0.18), PADY = 120;
+  const scl = Math.min((W - PADX * 2) / Math.max(sw, iw, tw, ww), (H - PADY * 2) / Math.max(sh, ih, th, wh));
+  const cx = W / 2, cy = H / 2 + 4;
+  const R = (w, h) => [cx - w * scl / 2, cy - h * scl / 2, w * scl, h * scl];
+
+  // physical screen
+  ctx.fillStyle = 'rgba(200,212,224,0.05)'; ctx.fillRect(...R(sw, sh));
+  // projected image
+  ctx.fillStyle = 'rgba(0,229,255,0.10)'; ctx.fillRect(...R(iw, ih));
+
+  // spill / short region against the reference (target if enabled, else the screen)
+  const refW = S.tOn ? tw : sw, refH = S.tOn ? th : sh, st = S.tOn ? S.state : S.scrState;
+  if (st === 'over' || st === 'under') {
+    const [ow, oh, nW, nH] = st === 'over' ? [iw, ih, refW, refH] : [refW, refH, iw, ih];
+    ctx.beginPath(); ctx.rect(...R(ow, oh)); ctx.rect(...R(nW, nH));
+    ctx.fillStyle = stCol(st, 0.38); ctx.fill('evenodd');
+  }
+
+  // lens limits
+  if (S.wW - S.wN > 1e-6) {
+    ctx.save(); ctx.strokeStyle = 'rgba(255,107,0,0.75)'; ctx.lineWidth = 1.2; ctx.setLineDash([5, 4]);
+    ctx.strokeRect(...R(ww, wh)); ctx.strokeRect(...R(nw, nh)); ctx.restore();
+    const [wx, wy] = R(ww, wh), [nx, ny] = R(nw, nh);
+    limitLabel('WIDE ' + fd(ww), wx + 4, wy - 5, 'left');
+    limitLabel('TELE ' + fd(nw), nx + 4, ny + 11, 'left');
+  }
+
+  // outlines
+  ctx.strokeStyle = 'rgba(200,212,224,0.85)'; ctx.lineWidth = 1.5; ctx.strokeRect(...R(sw, sh));
+  ctx.strokeStyle = 'rgba(0,229,255,0.95)'; ctx.lineWidth = 2.2; ctx.strokeRect(...R(iw, ih));
+  if (S.tOn) { ctx.save(); ctx.strokeStyle = tcol(0.95); ctx.lineWidth = 2; ctx.setLineDash([8, 4]); ctx.strokeRect(...R(tw, th)); ctx.restore(); }
+
+  if (plan) {   // ceiling-down plan view: projector sits above the centre
+    ctx.strokeStyle = 'rgba(0,229,255,0.3)'; ctx.lineWidth = 1; ctx.setLineDash([6, 6]);
+    ctx.beginPath(); ctx.moveTo(cx, cy - ih * scl / 2 - 24); ctx.lineTo(cx, cy + ih * scl / 2 + 24); ctx.moveTo(cx - iw * scl / 2 - 24, cy); ctx.lineTo(cx + iw * scl / 2 + 24, cy); ctx.stroke(); ctx.setLineDash([]);
+    ctx.fillStyle = 'rgba(0,229,255,0.8)'; ctx.beginPath(); ctx.arc(cx, cy, 7, 0, 7); ctx.fill();
+  }
+
+  // dimensions
+  const topY = cy - Math.max(ih, sh, th, wh) * scl / 2 - 34;
+  dimLineH(cx - iw * scl / 2, cx + iw * scl / 2, topY, 'IMAGE ' + fd(iw), '#00e5ff', false);
+  dimLineV(cy - ih * scl / 2, cy + ih * scl / 2, cx + Math.max(iw, sw, tw, ww) * scl / 2 + 40, fd(ih));
+  const botY = cy + Math.max(ih, sh, th, wh) * scl / 2 + 34;
+  ctx.textAlign = 'center';
+  if (S.tOn) {
+    dimLineH(cx - tw * scl / 2, cx + tw * scl / 2, botY, 'TARGET ' + fd(tw), tcol(0.95), true);
+    ctx.fillStyle = tcol(0.95); ctx.font = font(13, true);
+    ctx.fillText(S.state === 'exact' ? '✓ ON TARGET' : stateLabel() + '  ' + diffLabel() + '  (' + Math.abs((iw / tw - 1) * 100).toFixed(1) + '%)', cx, botY + 26);
+  } else {
+    dimLineH(cx - sw * scl / 2, cx + sw * scl / 2, botY, 'SCREEN ' + fd(sw), 'rgba(200,212,224,0.8)', true);
+    ctx.fillStyle = stCol(S.scrState, 0.95); ctx.font = font(13, true);
+    ctx.fillText(S.scrState === 'fills' ? '✓ IMAGE FILLS SCREEN' : (S.scrState === 'over' ? '▲ SPILLS ' : '▼ SHORT ') + fd(Math.abs(S.scrDiff)), cx, botY + 26);
+  }
+  ctx.font = font(10); ctx.fillStyle = 'rgba(200,212,224,0.55)';
+  ctx.fillText('green = image spills past the ' + (S.tOn ? 'target' : 'screen') + '  ·  red = ' + (S.tOn ? 'target' : 'screen') + ' not covered', cx, botY + 42);
+  title(plan ? 'PLAN VIEW — CEILING DOWN (PROJECTOR = DOT)' : 'FRONT ELEVATION — IMAGE vs ' + (S.tOn ? 'TARGET' : 'SCREEN'));
+  warnText(12, WARN_Y());
+}
+
+// ─── 3D VIEW ─────────────────────────────────────────────────
+let rafId = null, phase = 0;
+function start3D() { if (rafId || !S.ready) return; (function frame() { rafId = requestAnimationFrame(frame); if (S.auto) { phase += 0.006; S.angle = 25 + Math.sin(phase) * 28; } drawPersp(); })(); }
+function stop3D() { if (rafId) cancelAnimationFrame(rafId); rafId = null; }
+
+function drawPersp() {
+  ctx.clearRect(0, 0, W, H);
+  const a = S.angle * Math.PI / 180, ca = Math.cos(a), sa = Math.sin(a), tilt = 0.32;
+  const mode = S.mountMode, down = mode === 'down', mh = S.mountHeight, D = S.dist;
+  const sw2 = S.screenWidth / 2, sh2 = S.screenHeight / 2, iw2 = S.imgW / 2, ih2 = S.imgH / 2, ww2 = S.wW / 2, wh2 = ww2 / S.aspect, nw2 = S.wN / 2, nh2 = nw2 / S.aspect;
+  const bigW = Math.max(sw2, iw2, ww2), bigH = Math.max(sh2, ih2, wh2);
+  const c0 = down ? [0, D / 2, 0] : [-D / 2, 0, 0];
+  const R = down ? Math.hypot(bigW, D / 2, bigH) : Math.hypot(D / 2, bigW, Math.max(bigH, mh));
+  const scl = Math.min(W, H) * 0.42 / R;
+  const p3 = (x, y, z) => { x -= c0[0]; y -= c0[1]; z -= c0[2]; const rx = x * ca - z * sa, rz = x * sa + z * ca; return [W / 2 + rx * scl, H / 2 - (y - rz * tilt) * scl]; };
+  const poly = (pts, close) => { ctx.beginPath(); pts.forEach((p, i) => i ? ctx.lineTo(p[0], p[1]) : ctx.moveTo(p[0], p[1])); if (close) ctx.closePath(); };
+
+  const planeY = down ? 0 : (mode === 'floor' ? -mh : mh);
+  const x0 = down ? -bigW - 0.5 : -D - 0.5, x1 = down ? bigW + 0.5 : 0.5;
+  const z0 = down ? -bigH - 0.5 : -Math.max(bigW, 1) - 0.5, z1 = -z0;
+  ctx.strokeStyle = 'rgba(120,136,152,0.22)'; ctx.lineWidth = 1;
+  const step = Math.max(1, Math.ceil(Math.max(x1 - x0, z1 - z0) / 10));
+  for (let x = Math.ceil(x0); x <= x1; x += step) { poly([p3(x, planeY, z0), p3(x, planeY, z1)]); ctx.stroke(); }
+  for (let z = Math.ceil(z0); z <= z1; z += step) { poly([p3(x0, planeY, z), p3(x1, planeY, z)]); ctx.stroke(); }
+  poly([p3(x0, planeY, z0), p3(x1, planeY, z0), p3(x1, planeY, z1), p3(x0, planeY, z1)], true); ctx.strokeStyle = 'rgba(120,136,152,0.4)'; ctx.stroke();
+  const lp = p3(x0, planeY, z0); ctx.font = font(9); ctx.fillStyle = 'rgba(120,136,152,0.8)'; ctx.textAlign = 'left';
+  ctx.fillText(down || mode === 'floor' ? 'FLOOR' : 'CEILING', lp[0] + 4, lp[1] - 4);
+
+  const rect = (w2, h2) => down ? [[-w2, 0, -h2], [w2, 0, -h2], [w2, 0, h2], [-w2, 0, h2]] : [[0, h2, -w2], [0, -h2, -w2], [0, -h2, w2], [0, h2, w2]];
+  const proj = down ? p3(0, D, 0) : p3(-D, 0, 0);
+  const c = rect(iw2, ih2).map(q => p3(...q));
+
+  [[0, 1], [1, 2], [2, 3], [3, 0]].forEach(([i, j], k) => {
+    poly([proj, c[i], c[j]], true); ctx.fillStyle = `rgba(0,229,255,${[0.12, 0.07, 0.10, 0.07][k]})`; ctx.fill();
+    ctx.strokeStyle = 'rgba(0,229,255,0.35)'; ctx.lineWidth = 1; ctx.stroke();
+  });
+  poly(c, true); ctx.fillStyle = 'rgba(0,229,255,0.10)'; ctx.fill(); ctx.strokeStyle = 'rgba(0,229,255,0.9)'; ctx.lineWidth = 2; ctx.stroke();
+
+  // physical screen (white) and lens limits (orange)
+  poly(rect(sw2, sh2).map(q => p3(...q)), true); ctx.strokeStyle = 'rgba(200,212,224,0.85)'; ctx.lineWidth = 2; ctx.stroke();
+  if (S.wW - S.wN > 1e-6) {
+    ctx.setLineDash([5, 4]); ctx.strokeStyle = 'rgba(255,107,0,0.8)'; ctx.lineWidth = 1.2;
+    poly(rect(ww2, wh2).map(q => p3(...q)), true); ctx.stroke();
+    poly(rect(nw2, nh2).map(q => p3(...q)), true); ctx.stroke(); ctx.setLineDash([]);
+  }
+  if (S.tOn) {
+    ctx.setLineDash([7, 4]); poly(rect(S.targetWidth / 2, S.targetWidth / S.aspect / 2).map(q => p3(...q)), true); ctx.strokeStyle = tcol(0.95); ctx.lineWidth = 2; ctx.stroke(); ctx.setLineDash([]);
+  }
+
+  ctx.fillStyle = '#1a2230'; ctx.strokeStyle = 'rgba(0,229,255,0.6)'; ctx.lineWidth = 1.5;
+  ctx.fillRect(proj[0] - 15, proj[1] - 9, 30, 18); ctx.strokeRect(proj[0] - 15, proj[1] - 9, 30, 18);
+  ctx.beginPath(); ctx.arc(proj[0] + 10, proj[1], 5, 0, 7); ctx.fillStyle = 'rgba(0,229,255,0.4)'; ctx.fill(); ctx.strokeStyle = 'rgba(0,229,255,0.9)'; ctx.stroke();
+
+  ctx.textAlign = 'center'; ctx.font = font(10); ctx.fillStyle = 'rgba(0,229,255,0.5)';
+  ctx.fillText('3D PERSPECTIVE — ' + { floor: 'FLOOR', ceiling: 'CEILING INVERTED', down: 'CEILING DOWN' }[mode], W / 2, W < 620 ? 62 : 20);
+  ctx.fillStyle = 'rgba(200,212,224,0.4)'; ctx.fillText(S.auto ? 'drag to orbit' : 'drag to orbit · double-click to auto-rotate', W / 2, H - 14);
+  ctx.textAlign = 'left'; ctx.font = font(9); ctx.fillStyle = 'rgba(0,229,255,0.45)';
+  ctx.fillText('DISTANCE: ' + fd(D) + '   RATIO: ' + S.zoom.toFixed(2) + ':1', 12, H - 44);
+  ctx.fillText('IMAGE: ' + fd(S.imgW) + ' × ' + fd(S.imgH), 12, H - 30);
+}
+
+// ─── Pointer: drag the projector (side / top / down) or orbit (3D) ─
+let orbit = null, dragP = null;
+const canvasPt = e => { const r = canvas.getBoundingClientRect(); return { x: e.clientX - r.left, y: e.clientY - r.top }; };
+const setField = (id, m) => { $(id).value = +fromM(m).toFixed(2); };
+
+canvas.addEventListener('pointerdown', e => {
+  const p = canvasPt(e);
+  if (S.view === '3d') { orbit = { x: e.clientX, a: S.angle }; S.auto = false; canvas.setPointerCapture(e.pointerId); return; }
+  const h = S.hit;
+  if (!h || !S.ready || Math.hypot(p.x - h.x, p.y - h.y) > h.r) return;
+  dragP = { ox: p.x - h.lx, oy: p.y - h.ly, h };
+  S.freezeScl = h.scl;                       // keep the scale steady while dragging
+  canvas.setPointerCapture(e.pointerId); canvas.style.cursor = 'grabbing';
+});
+canvas.addEventListener('pointermove', e => {
+  const p = canvasPt(e);
+  if (orbit) { S.angle = orbit.a + (e.clientX - orbit.x) * 0.4; return; }
+  if (!dragP) { const h = S.hit; canvas.style.cursor = S.view !== '3d' && h && Math.hypot(p.x - h.x, p.y - h.y) <= h.r ? 'grab' : 'default'; return; }
+  const h = dragP.h, lx = p.x - dragP.ox, ly = p.y - dragP.oy;
+  if (h.kind === 'side' || h.kind === 'top') {
+    const D = clamp((h.sx - lx) / h.scl, 0.2, Math.max(0.2, (h.sx - 24) / h.scl));
+    setField('projDist', D); S.distManual = true;
+  }
+  if (h.kind === 'side') {
+    const mh = h.inv ? (ly - h.anchorY) / h.scl : (h.anchorY - ly) / h.scl;
+    setField('mountHeight', clamp(mh, 0.1, Math.max(0.1, (H - h.padT - 40) / h.scl)));
+  }
+  if (h.kind === 'down') {
+    setField('mountHeight', clamp((h.anchorY - ly) / h.scl, 0.3, Math.max(0.3, (h.anchorY - h.padT) / h.scl)));
+  }
+  calculate(true);
+});
+const endPointer = () => {
+  orbit = null;
+  if (dragP) { dragP = null; S.freezeScl = null; canvas.style.cursor = 'default'; render(); }
+};
+canvas.addEventListener('pointerup', endPointer);
+canvas.addEventListener('pointercancel', endPointer);
+canvas.addEventListener('dblclick', () => { S.auto = true; });
+
+// ─── PROJECTOR DATABASE (indicative specs) ────────────────────
+const PROJECTORS = [
+  // ── Epson ──
+  {n:'Epson EB-L510U',        b:'Epson',  lm:5000,  rMin:0.58, rMax:0.58, asp:'16:10', res:'1920x1200'},
+  {n:'Epson EB-L615U',        b:'Epson',  lm:6000,  rMin:0.58, rMax:0.58, asp:'16:10', res:'1920x1200'},
+  {n:'Epson EB-L730U',        b:'Epson',  lm:7000,  rMin:0.58, rMax:0.58, asp:'16:10', res:'1920x1200'},
+  {n:'Epson EB-PU1007W',      b:'Epson',  lm:7000,  rMin:1.35, rMax:2.20, asp:'16:10', res:'1920x1200'},
+  {n:'Epson EB-PU2010B',      b:'Epson',  lm:10000, rMin:1.35, rMax:2.20, asp:'16:10', res:'1920x1200'},
+  {n:'Epson EH-TW9400',       b:'Epson',  lm:2600,  rMin:1.35, rMax:2.84, asp:'16:9',  res:'3840x2160'},
+  {n:'Epson EH-TW7400',       b:'Epson',  lm:2400,  rMin:1.32, rMax:2.16, asp:'16:9',  res:'3840x2160'},
+  {n:'Epson EH-LS300W',       b:'Epson',  lm:3600,  rMin:0.25, rMax:0.25, asp:'16:9',  res:'1920x1080'},
+  {n:'Epson EB-W52',          b:'Epson',  lm:4000,  rMin:1.28, rMax:1.55, asp:'16:10', res:'1280x800'},
+  {n:'Epson EB-X51',          b:'Epson',  lm:3800,  rMin:1.48, rMax:1.78, asp:'4:3',   res:'1024x768'},
+  {n:'Epson EB-2265U',        b:'Epson',  lm:5500,  rMin:1.38, rMax:2.22, asp:'16:10', res:'1920x1200'},
+  {n:'Epson EB-2255U',        b:'Epson',  lm:5000,  rMin:1.38, rMax:2.22, asp:'16:10', res:'1920x1200'},
+  {n:'Epson EH-TW5825',       b:'Epson',  lm:2700,  rMin:1.22, rMax:1.47, asp:'16:9',  res:'1920x1080'},
+  {n:'Epson EH-TW6250',       b:'Epson',  lm:2800,  rMin:1.22, rMax:1.47, asp:'16:9',  res:'3840x2160'},
+
+  // ── BenQ ──
+  {n:'BenQ W1800i',           b:'BenQ',   lm:2000,  rMin:1.50, rMax:1.65, asp:'16:9',  res:'3840x2160'},
+  {n:'BenQ W2700i',           b:'BenQ',   lm:2000,  rMin:1.50, rMax:1.65, asp:'16:9',  res:'3840x2160'},
+  {n:'BenQ W4000i',           b:'BenQ',   lm:3200,  rMin:1.50, rMax:1.65, asp:'16:9',  res:'3840x2160'},
+  {n:'BenQ TK860i',           b:'BenQ',   lm:3300,  rMin:1.50, rMax:1.65, asp:'16:9',  res:'3840x2160'},
+  {n:'BenQ HT3560',           b:'BenQ',   lm:3200,  rMin:1.50, rMax:1.65, asp:'16:9',  res:'3840x2160'},
+  {n:'BenQ LU960ST',          b:'BenQ',   lm:5500,  rMin:0.77, rMax:0.77, asp:'16:10', res:'1920x1200'},
+  {n:'BenQ LU935',            b:'BenQ',   lm:6000,  rMin:1.39, rMax:2.09, asp:'16:10', res:'1920x1200'},
+  {n:'BenQ LK990',            b:'BenQ',   lm:5000,  rMin:1.39, rMax:2.09, asp:'16:9',  res:'3840x2160'},
+  {n:'BenQ SH753P',           b:'BenQ',   lm:5000,  rMin:1.48, rMax:1.78, asp:'16:9',  res:'1920x1080'},
+  {n:'BenQ MX825STH',         b:'BenQ',   lm:3500,  rMin:0.61, rMax:0.61, asp:'4:3',   res:'1024x768'},
+  {n:'BenQ EX3501R',          b:'BenQ',   lm:2000,  rMin:1.15, rMax:1.50, asp:'16:9',  res:'1920x1080'},
+  {n:'BenQ GP20',             b:'BenQ',   lm:1500,  rMin:1.22, rMax:1.22, asp:'16:9',  res:'1920x1080'},
+
+  // ── Sony ──
+  {n:'Sony VPL-VW790ES',      b:'Sony',   lm:2000,  rMin:1.38, rMax:2.76, asp:'16:9',  res:'4096x2160'},
+  {n:'Sony VPL-VW590ES',      b:'Sony',   lm:1800,  rMin:1.38, rMax:2.76, asp:'16:9',  res:'3840x2160'},
+  {n:'Sony VPL-XW7000ES',     b:'Sony',   lm:3200,  rMin:1.38, rMax:2.76, asp:'16:9',  res:'4096x2160'},
+  {n:'Sony VPL-XW5000ES',     b:'Sony',   lm:2000,  rMin:1.35, rMax:2.84, asp:'16:9',  res:'3840x2160'},
+  {n:'Sony VPL-FHZ85',        b:'Sony',   lm:8000,  rMin:1.38, rMax:2.76, asp:'16:10', res:'1920x1200'},
+  {n:'Sony VPL-FHZ80',        b:'Sony',   lm:6000,  rMin:1.38, rMax:2.76, asp:'16:10', res:'1920x1200'},
+  {n:'Sony VPL-GTZ380',       b:'Sony',   lm:10000, rMin:0.65, rMax:0.65, asp:'16:9',  res:'4096x2160'},
+
+  // ── Panasonic ──
+  {n:'Panasonic PT-RZ790',    b:'Panasonic', lm:7000, rMin:1.36, rMax:2.27, asp:'16:9', res:'1920x1080'},
+  {n:'Panasonic PT-RZ120',    b:'Panasonic', lm:12000,rMin:1.36, rMax:2.27, asp:'16:10',res:'1920x1200'},
+  {n:'Panasonic PT-MZ770',    b:'Panasonic', lm:7000, rMin:1.36, rMax:2.27, asp:'16:10',res:'1920x1200'},
+  {n:'Panasonic PT-MZ670',    b:'Panasonic', lm:6500, rMin:1.36, rMax:2.27, asp:'16:10',res:'1920x1200'},
+  {n:'Panasonic PT-VMZ60',    b:'Panasonic', lm:6000, rMin:1.36, rMax:2.27, asp:'16:10',res:'1920x1200'},
+  {n:'Panasonic PT-FRQ60',    b:'Panasonic', lm:6000, rMin:1.36, rMax:2.27, asp:'16:10',res:'3840x2400'},
+  {n:'Panasonic PT-RZ34K',    b:'Panasonic', lm:30000,rMin:1.36, rMax:2.27, asp:'16:9', res:'3840x2160'},
+  {n:'Panasonic PT-EZ590',    b:'Panasonic', lm:5400, rMin:1.36, rMax:2.17, asp:'16:10',res:'1920x1200'},
+
+  // ── Christie ──
+  {n:'Christie D4K40-RGB',    b:'Christie',lm:37000, rMin:1.25, rMax:3.90, asp:'16:9',  res:'4096x2160'},
+  {n:'Christie DWU1075-GS',   b:'Christie',lm:10750, rMin:1.25, rMax:3.90, asp:'16:10', res:'1920x1200'},
+  {n:'Christie DHD850-GS',    b:'Christie',lm:8500,  rMin:1.25, rMax:3.90, asp:'16:9',  res:'1920x1080'},
+  {n:'Christie LHD878-DS',    b:'Christie',lm:7800,  rMin:1.10, rMax:1.77, asp:'16:9',  res:'1920x1080'},
+  {n:'Christie D20WU-HS',     b:'Christie',lm:20000, rMin:1.25, rMax:3.90, asp:'16:10', res:'1920x1200'},
+
+  // ── Barco ──
+  {n:'Barco UDX-4K32',        b:'Barco',  lm:31000, rMin:1.25, rMax:3.68, asp:'16:9',  res:'3840x2400'},
+  {n:'Barco UDX-4K22',        b:'Barco',  lm:22000, rMin:1.25, rMax:3.68, asp:'16:9',  res:'3840x2400'},
+  {n:'Barco F80-4K9',         b:'Barco',  lm:9000,  rMin:1.25, rMax:3.68, asp:'16:9',  res:'4096x2160'},
+  {n:'Barco F80-4K7',         b:'Barco',  lm:7000,  rMin:1.25, rMax:3.68, asp:'16:9',  res:'4096x2160'},
+  {n:'Barco CLM-HD14',        b:'Barco',  lm:14000, rMin:1.25, rMax:3.68, asp:'16:9',  res:'1920x1080'},
+
+  // ── NEC / Sharp NEC ──
+  {n:'NEC PA804UL',           b:'NEC',    lm:8000,  rMin:1.38, rMax:2.22, asp:'16:10', res:'1920x1200'},
+  {n:'NEC PA1004UL',          b:'NEC',    lm:10000, rMin:1.38, rMax:2.22, asp:'16:10', res:'1920x1200'},
+  {n:'NEC P605UL',            b:'NEC',    lm:6000,  rMin:1.24, rMax:2.00, asp:'16:10', res:'1920x1200'},
+  {n:'Sharp NEC PE506UL',     b:'NEC',    lm:5000,  rMin:1.22, rMax:2.01, asp:'16:10', res:'1920x1200'},
+  {n:'Sharp NEC NP-PE455UL',  b:'NEC',    lm:4500,  rMin:0.76, rMax:0.76, asp:'16:10', res:'1920x1200'},
+  {n:'NEC NP-PA653U',         b:'NEC',    lm:6500,  rMin:1.38, rMax:2.22, asp:'16:10', res:'1920x1200'},
+
+  // ── Optoma ──
+  {n:'Optoma ZU720T',         b:'Optoma', lm:7200,  rMin:1.39, rMax:2.24, asp:'16:10', res:'1920x1200'},
+  {n:'Optoma ZU506T',         b:'Optoma', lm:5000,  rMin:0.81, rMax:0.81, asp:'16:10', res:'1920x1200'},
+  {n:'Optoma UHZ55',          b:'Optoma', lm:3000,  rMin:1.39, rMax:2.22, asp:'16:9',  res:'3840x2160'},
+  {n:'Optoma UHZ65',          b:'Optoma', lm:4000,  rMin:1.39, rMax:2.22, asp:'16:9',  res:'3840x2160'},
+  {n:'Optoma ZH506',          b:'Optoma', lm:5000,  rMin:1.41, rMax:2.26, asp:'16:9',  res:'1920x1080'},
+  {n:'Optoma EH400',          b:'Optoma', lm:4000,  rMin:1.47, rMax:1.77, asp:'16:9',  res:'1920x1080'},
+  {n:'Optoma ZH606e',         b:'Optoma', lm:6300,  rMin:1.39, rMax:2.24, asp:'16:9',  res:'1920x1080'},
+  {n:'Optoma GT1090HDR',      b:'Optoma', lm:3800,  rMin:0.49, rMax:0.49, asp:'16:9',  res:'1920x1080'},
+
+  // ── ViewSonic ──
+  {n:'ViewSonic LS920WU',     b:'ViewSonic',lm:6000, rMin:1.38, rMax:2.22, asp:'16:10', res:'1920x1200'},
+  {n:'ViewSonic LS740W',      b:'ViewSonic',lm:5000, rMin:1.38, rMax:2.22, asp:'16:10', res:'1280x800'},
+  {n:'ViewSonic PX748-4K',    b:'ViewSonic',lm:4000, rMin:1.50, rMax:1.65, asp:'16:9',  res:'3840x2160'},
+  {n:'ViewSonic X2-4K',       b:'ViewSonic',lm:2150, rMin:1.20, rMax:1.20, asp:'16:9',  res:'3840x2160'},
+  {n:'ViewSonic LS831WU',     b:'ViewSonic',lm:5000, rMin:0.81, rMax:0.81, asp:'16:10', res:'1920x1200'},
+
+  // ── Laser / UST Specials ──
+  {n:'LG HU85LA CineBeam',    b:'LG',     lm:4000,  rMin:0.19, rMax:0.19, asp:'16:9',  res:'3840x2160'},
+  {n:'LG HU810PW CineBeam',   b:'LG',     lm:2700,  rMin:1.35, rMax:2.84, asp:'16:9',  res:'3840x2160'},
+  {n:'Samsung LSP9T',         b:'Samsung',lm:2800,  rMin:0.19, rMax:0.19, asp:'16:9',  res:'3840x2160'},
+  {n:'Hisense PX1-PRO',       b:'Hisense',lm:2200,  rMin:0.25, rMax:0.25, asp:'16:9',  res:'3840x2160'},
+  {n:'Hisense L9G',           b:'Hisense',lm:3000,  rMin:0.25, rMax:0.25, asp:'16:9',  res:'3840x2160'},
+  {n:'Xiaomi Mi Laser 150"',  b:'Xiaomi', lm:5000,  rMin:0.23, rMax:0.23, asp:'16:9',  res:'3840x2160'},
+  {n:'Dangbei Mars Pro 2',    b:'Dangbei',lm:1600,  rMin:1.20, rMax:1.20, asp:'16:9',  res:'3840x2160'},
+  {n:'AWOL Vision LTV-3500 Pro',b:'AWOL', lm:3500,  rMin:0.25, rMax:0.25, asp:'16:9',  res:'3840x2160'},
+
+  // ── Vivitek ──
+  {n:'Vivitek DU4671Z',       b:'Vivitek',lm:5000,  rMin:1.38, rMax:2.22, asp:'16:10', res:'1920x1200'},
+  {n:'Vivitek DU4771Z',       b:'Vivitek',lm:5500,  rMin:1.38, rMax:2.22, asp:'16:10', res:'1920x1200'},
+  {n:'Vivitek D5010',         b:'Vivitek',lm:5000,  rMin:1.38, rMax:2.22, asp:'16:9',  res:'1920x1080'},
+
+  // ── Casio ──
+  {n:'Casio XJ-V2',           b:'Casio',  lm:3300,  rMin:1.46, rMax:1.75, asp:'4:3',   res:'1024x768'},
+  {n:'Casio XJ-F210WN',       b:'Casio',  lm:4000,  rMin:1.27, rMax:1.60, asp:'16:10', res:'1280x800'},
+
+  // ── Hitachi / Maxell ──
+  {n:'Maxell MP-WU5603',      b:'Maxell', lm:6000,  rMin:1.25, rMax:2.00, asp:'16:10', res:'1920x1200'},
+  {n:'Maxell MP-WU5503',      b:'Maxell', lm:5500,  rMin:1.25, rMax:2.00, asp:'16:10', res:'1920x1200'},
+
+  // ── Digital Projection ──
+  {n:'Digital Proj. E-Vision 8500',b:'Digital Projection',lm:8500,rMin:1.35,rMax:2.20,asp:'16:10',res:'1920x1200'},
+  {n:'Digital Proj. Titan Laser 33000',b:'Digital Projection',lm:33000,rMin:1.25,rMax:3.90,asp:'16:9',res:'4096x2160'},
+
+  // ── Projectiondesign ──
+  {n:'Projectiondesign FL32',  b:'projectiondesign',lm:18000,rMin:1.25,rMax:3.90,asp:'16:10',res:'1920x1200'},
+
+  // ── InFocus ──
+  {n:'InFocus IN5316HDa',      b:'InFocus',lm:5000, rMin:1.47, rMax:2.37, asp:'16:9',  res:'1920x1080'},
+  {n:'InFocus IN136ST',        b:'InFocus',lm:4000, rMin:0.52, rMax:0.52, asp:'16:10', res:'1280x800'},
+
+  // ── Ricoh ──
+  {n:'Ricoh PJ WXL5670',       b:'Ricoh', lm:5000,  rMin:0.80, rMax:0.80, asp:'16:10', res:'1280x800'},
+  {n:'Ricoh PJ WUL5B70',       b:'Ricoh', lm:5500,  rMin:1.22, rMax:1.96, asp:'16:10', res:'1920x1200'},
+
+  // ── Avio ──
+  {n:'Avio iP-100Z',           b:'Avio',  lm:10000, rMin:1.25, rMax:2.10, asp:'16:10', res:'1920x1200'},
+
+  // ── Canon ──
+  {n:'Canon REALiS WUX6700',   b:'Canon', lm:6700,  rMin:1.33, rMax:2.22, asp:'16:10', res:'1920x1200'},
+  {n:'Canon REALiS 4K6020Z',   b:'Canon', lm:6000,  rMin:1.38, rMax:2.64, asp:'16:9',  res:'4096x2400'},
+  {n:'Canon XEED WUX7000Z',    b:'Canon', lm:7000,  rMin:1.39, rMax:2.10, asp:'16:10', res:'1920x1200'},
+
+  // ── JVC ──
+  {n:'JVC DLA-NZ9',            b:'JVC',   lm:3000,  rMin:1.36, rMax:2.91, asp:'16:9',  res:'8192x4320'},
+  {n:'JVC DLA-NZ8',            b:'JVC',   lm:3000,  rMin:1.36, rMax:2.91, asp:'16:9',  res:'4096x2160'},
+  {n:'JVC DLA-NZ7',            b:'JVC',   lm:2200,  rMin:1.36, rMax:2.91, asp:'16:9',  res:'4096x2160'},
+  {n:'JVC DLA-RS3100',         b:'JVC',   lm:2200,  rMin:1.36, rMax:2.91, asp:'16:9',  res:'4096x2160'},
+
+  // ── Sim2 ──
+  {n:'Sim2 Crystal 4 Laser',   b:'Sim2',  lm:2500,  rMin:1.25, rMax:3.00, asp:'16:9',  res:'3840x2160'},
+
+  // ── Laser Phosphor Install ──
+  {n:'Epson EB-L20000UNL',     b:'Epson', lm:20000, rMin:1.35, rMax:2.20, asp:'16:10', res:'1920x1200'},
+  {n:'Panasonic PT-RCQ10',     b:'Panasonic',lm:10000,rMin:0.38,rMax:0.56,asp:'16:9',  res:'3840x2400'},
+  {n:'Christie Mirage SST',    b:'Christie',lm:18000,rMin:1.25, rMax:3.90, asp:'2.35:1',res:'2560x1080'},
+  {n:'Barco EventLite 4K25',   b:'Barco', lm:25000, rMin:1.25, rMax:3.68, asp:'16:9',  res:'3840x2160'},
+
+  // ── Portable/Consumer ──
+  {n:'Anker Nebula Cosmos Max',b:'Anker',  lm:1500,  rMin:1.20, rMax:1.20, asp:'16:9',  res:'3840x2160'},
+  {n:'Anker Nebula Capsule 3', b:'Anker',  lm:300,   rMin:1.20, rMax:1.20, asp:'16:9',  res:'1920x1080'},
+  {n:'XGIMI Horizon Pro',      b:'XGIMI',  lm:2200,  rMin:1.20, rMax:1.20, asp:'16:9',  res:'3840x2160'},
+  {n:'XGIMI Aura',             b:'XGIMI',  lm:2400,  rMin:0.25, rMax:0.25, asp:'16:9',  res:'3840x2160'},
+  {n:'XGIMI MoGo 2 Pro',       b:'XGIMI',  lm:400,   rMin:1.20, rMax:1.20, asp:'16:9',  res:'1920x1080'},
+  {n:'Formovie Theater',       b:'Formovie',lm:2800,  rMin:0.25, rMax:0.25, asp:'16:9', res:'3840x2160'},
+];
+
+// Search aliases so "4k", "1080p", "wuxga", "ust", "short throw" etc. all work
+function tagsFor(p) {
+  const [w, h] = p.res.split('x').map(Number), t = [];
+  if (w >= 3840) t.push('4k uhd'); else if (w === 1920 && h === 1080) t.push('1080p fhd full-hd');
+  else if (w === 1920 && h === 1200) t.push('wuxga'); else if (w === 1280 && h === 800) t.push('wxga');
+  else if (w === 1024 && h === 768) t.push('xga'); else if (w === 1280 && h === 720) t.push('720p');
+  if (p.rMax <= 0.4) t.push('ust ultra-short-throw short throw');
+  else if (p.rMax < 1.0) t.push('short throw st');
+  t.push(p.rMin === p.rMax ? 'fixed' : 'zoom');
+  return t.join(' ');
+}
+
+// ─── DB FILTER ───────────────────────────────────────────────
+let matchList = [], selIdx = -1;
+const esc = s => s.replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+const reEsc = s => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
+function filterDB(q) {
+  const box = $('dbResults');
+  if (!q || !q.trim()) { box.classList.remove('open'); matchList = []; return; }
+  const terms = q.toLowerCase().split(/\s+/).filter(Boolean);
+  matchList = PROJECTORS.filter(p => {
+    const hay = (p.n + ' ' + p.b + ' ' + p.lm + ' ' + p.asp + ' ' + p.res + ' ' + tagsFor(p)).toLowerCase();
+    return terms.every(t => hay.includes(t));
+  }).slice(0, 5);
+  selIdx = matchList.length ? 0 : -1;
+  if (!matchList.length) box.innerHTML = '<div class="db-status">No matches — try a brand or lumen count</div>';
+  else {
+    const re = new RegExp('(' + terms.map(reEsc).join('|') + ')', 'gi');
+    box.innerHTML = matchList.map((p, i) => {
+      const tr = p.rMin === p.rMax ? p.rMin.toFixed(2) + ':1' : p.rMin.toFixed(2) + '–' + p.rMax.toFixed(2) + ':1';
+      return `<div class="db-result-item${i === 0 ? ' sel' : ''}" data-i="${i}">
+        <div class="db-name">${esc(p.n).replace(re, '<mark>$1</mark>')}</div>
+        <div class="db-meta">${p.lm.toLocaleString()} lm · TR ${tr} · ${esc(p.asp)} · ${esc(p.res)}</div></div>`;
+    }).join('');
+  }
+  box.classList.add('open');
+}
+function closeDB() { $('dbResults').classList.remove('open'); }
+
+function setAspect(val) {   // pick the closest option in the dropdown
+  const sel = $('aspectRatio'); let best = sel.options[0], bd = 9;
+  [...sel.options].forEach(o => { const d = Math.abs(parseFloat(o.value) - val); if (d < bd) { bd = d; best = o; } });
+  sel.value = best.value;
+}
+function applyProjector(i) {
+  const p = matchList[i]; if (!p) return;
+  $('throwMin').value = p.rMin; $('throwMax').value = p.rMax; $('lumens').value = p.lm;
+  const [a, b] = p.asp.split(':').map(Number); if (a && b) setAspect(a / b);
+  $('dbSearch').value = p.n; closeDB();
+  calculate(true); showNotif('Loaded: ' + p.n);
+}
+
+const dbIn = $('dbSearch');
+dbIn.addEventListener('input', () => filterDB(dbIn.value));
+dbIn.addEventListener('focus', () => filterDB(dbIn.value));
+dbIn.addEventListener('keydown', e => {
+  if (e.key === 'Enter' && selIdx >= 0) { e.preventDefault(); applyProjector(selIdx); }
+  else if (e.key === 'Escape') closeDB();
+  else if ((e.key === 'ArrowDown' || e.key === 'ArrowUp') && matchList.length) {
+    e.preventDefault(); selIdx = (selIdx + (e.key === 'ArrowDown' ? 1 : -1) + matchList.length) % matchList.length;
+    document.querySelectorAll('#dbResults .db-result-item').forEach((el, i) => el.classList.toggle('sel', i === selIdx));
+  }
+});
+$('dbResults').addEventListener('pointerdown', e => { const it = e.target.closest('.db-result-item'); if (it) { e.preventDefault(); applyProjector(+it.dataset.i); } });
+document.addEventListener('pointerdown', e => { if (!e.target.closest('#dbSearch') && !e.target.closest('#dbResults')) closeDB(); });
+
+// ─── SAVE / LOAD PROJECT ─────────────────────────────────────
+const INPUT_IDS = ['throwMin', 'throwMax', 'lumens', 'screenWidth', 'aspectRatio', 'mountHeight'];
+
+function saveProject() {
+  const name = $('projectName').value.trim() || 'ThrowCAD Project';
+  const project = {
+    _format: 'throwcad', _version: '3.2', _saved: new Date().toISOString(),
+    name, notes: $('projectNotes').value.trim(),
+    inputs: Object.assign(Object.fromEntries(INPUT_IDS.map(id => [id, $(id).value])),
+      { unit: S.unit, mountMode: S.mountMode, projectorName: $('dbSearch').value,
+        projDist: S.distManual ? $('projDist').value : null, zoom: S.zoomAuto ? null : S.zoom }),
+    target: { enabled: S.targetEnabled, width: $('targetWidth').value },
+    view: S.view,
+    results: S.ready ? { throwDistMin: S.tdMin, throwDistMax: S.tdMax, screenWidth: S.screenWidth, screenHeight: S.screenHeight, lumens: S.lumens, aspect: S.aspect } : null
+  };
+  const blob = new Blob([JSON.stringify(project, null, 2)], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = (name.replace(/[^a-z0-9_\-\s]/gi, '').trim().replace(/\s+/g, '_') || 'throwcad_project') + '.throwcad';
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+  showNotif('Project saved: ' + a.download);
+}
+
+function loadProject(evt) {
+  const input = evt.target, file = input.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = () => {
+    try {
+      const p = JSON.parse(reader.result);
+      if (p._format !== 'throwcad') throw new Error('Not a ThrowCAD project file');
+      const inp = p.inputs || {}, tgt = p.target || {};
+      const legacy = parseFloat(p._version) < 3.1;     // v3.0 stored height/target in metres regardless of unit
+
+      const unit = inp.unit === 'ft' ? 'ft' : 'm';
+      $('unitSel').value = unit; S.unit = unit; updateUnitLabels();
+      INPUT_IDS.forEach(id => { if (inp[id] !== undefined && inp[id] !== '') $(id).value = inp[id]; });
+      if (legacy && unit === 'ft') {
+        if (inp.mountHeight) $('mountHeight').value = +(inp.mountHeight / FT2M).toFixed(2);
+        if (tgt.width) tgt.width = +(tgt.width / FT2M).toFixed(2);
+      }
+      if (['floor', 'ceiling', 'down'].includes(inp.mountMode)) setMount(inp.mountMode);
+      $('dbSearch').value = inp.projectorName || '';
+      S.distManual = inp.projDist != null && inp.projDist !== '';
+      if (S.distManual) $('projDist').value = inp.projDist;
+      S.zoomAuto = !(inp.zoom > 0); if (!S.zoomAuto) S.zoom = +inp.zoom;
+      if (tgt.width) $('targetWidth').value = tgt.width;
+      toggleTarget(!!tgt.enabled);
+      $('projectName').value = p.name || ''; $('projectNotes').value = p.notes || '';
+
+      const ok = calculate(true);
+      if (['side', 'top', 'front', '3d'].includes(p.view)) setView(p.view);
+
+      $('projectMeta').style.display = 'block';
+      $('projectMetaName').textContent = p.name || 'Unnamed';
+      $('projectMetaSaved').textContent = 'Saved: ' + (p._saved ? new Date(p._saved).toLocaleString() : '—');
+      if (ok) showNotif('Loaded: ' + (p.name || file.name)); else showNotif('Loaded, but some values were invalid', true);
+    } catch (err) {
+      showNotif('Could not open file: ' + err.message, true);
+    }
+    input.value = '';
+  };
+  reader.onerror = () => { showNotif('Could not read file', true); input.value = ''; };
+  reader.readAsText(file);
+}
+
+// ─── INIT ────────────────────────────────────────────────────
+$('unitSel').addEventListener('change', onUnitChange);
+$('screenPresets').addEventListener('click', e => { const c = e.target.closest('.chip'); if (c) chipSet('screenPresets', 'screenWidth', c); });
+$('targetPresets').addEventListener('click', e => { const c = e.target.closest('.chip'); if (c) chipSet('targetPresets', 'targetWidth', c); });
+
+// live recalculation (debounced) once a first result exists
+let liveT;
+[...INPUT_IDS, 'targetWidth'].forEach(id => {
+  $(id).addEventListener('input', () => { clearTimeout(liveT); liveT = setTimeout(() => calculate(true), 120); });
+  $(id).addEventListener('change', () => calculate(true));
+});
+
+$('projDist').addEventListener('input', () => { S.distManual = true; clearTimeout(liveT); liveT = setTimeout(() => calculate(true), 120); });
+$('zoomSlider').addEventListener('input', onZoomSlider);
+
+updateUnitLabels();
+setMount('floor');
+calculate(true);
+fitCanvas();
+</script>
+</body>
+</html>
